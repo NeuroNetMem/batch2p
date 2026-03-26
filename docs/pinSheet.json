@@ -282,5 +282,19 @@
       "used": false,
       "for": null
     }
+  ],
+  "states": [
+	  {
+		  "idx": 0,
+		  "name": "uncorrected_distance"
+ 	  },
+	  {
+		  "idx": 1,
+		  "name": "corrected_distance"
+ 	  },
+	  {
+		  "idx": 2,
+		  "name": "licks"
+	  }
   ]
 }
