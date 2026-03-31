@@ -98,8 +98,12 @@ def load_pin_mapping(pin_json_path):
     mapping = {
         'digital_in': {},
         'digital_out': {},
-        'analog_in': {}
+        'analog_in': {},
+        'states': {}
     }
+
+    for state in pin_data.get('states', []):
+        mapping['states'][state['idx']] = state['name']
 
     for pin in pin_data['pins']:
         name = pin['name']
@@ -159,6 +163,11 @@ def apply_pin_mapping(decoded_data, pin_mapping):
     if pin_mapping['analog_in']:
         for idx, name in pin_mapping['analog_in'].items():
             result[name] = decoded_data['analog'][:, idx]
+
+    # Map states columns
+    if pin_mapping['states']:
+        for idx, name in pin_mapping['states'].items():
+            result[name] = decoded_data['longVar'][:, idx]
 
     # Keep original arrays if no mapping was applied
     if not pin_mapping['digital_in']:

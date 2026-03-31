@@ -11,6 +11,11 @@ setup(
         'scipy',
         'cobs',
         'tqdm',
+        'matplotlib',
+        'pandas',
+        'pynapple',
+        'seaborn',
+		'ipympl'
     ],
     entry_points={
         'console_scripts': [
