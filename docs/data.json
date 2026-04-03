@@ -1,0 +1,16 @@
+{
+  "root_path": "/data/ofl_2p/20251118",
+
+  "data": [
+    "00001/477116_20251118_00001.tif"
+  ],
+
+  "tiff_trim_size": 9999,
+  "add_offset": false,
+  "block_size": 3,
+
+  "results_root_dir": "/data/ofl_2p/20251118/results",
+  "job_root_dir": "/data/ofl_2p/20251118",
+  "job_id": "00001split",
+  "temp_dir": "/data/temp"
+}
