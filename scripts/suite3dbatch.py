@@ -228,8 +228,9 @@ def main():
             shutil.copytree(str(results_path), str(original_results_path))
 
             # Copy job directory back
-            working_job_path = job_root_dir / job_id
-            original_job_path = original_job_root_dir / job_id
+            full_job_id = "s3d-" + job_id
+            working_job_path = job_root_dir / full_job_id
+            original_job_path = original_job_root_dir / full_job_id
             if working_job_path.exists():
                 print(f"Copying job directory back to {original_job_path} ...")
                 if original_job_path.exists():
