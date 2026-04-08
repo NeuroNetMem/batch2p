@@ -3,7 +3,10 @@
 Batch suite3d preprocessing script.
 
 Usage:
-    python suite3dbatch.py <params.json> <data.json> [--working-dir <dir>]
+    python suite3dbatch.py <data.json> [--working-dir <dir>]
+
+The data JSON file must contain a "params_file" key pointing to the params JSON.
+If "params_file" is a relative path it is resolved relative to "root_path".
 """
 import argparse
 import json
@@ -99,17 +102,22 @@ def copy_tifs_to_working_dir(tifs: list[Path], dest_dir: Path) -> list[Path]:
 
 def main():
     parser = argparse.ArgumentParser(description="Batch suite3d preprocessing")
-    parser.add_argument("params_json", type=Path, help="Path to params JSON file")
     parser.add_argument("data_json", type=Path, help="Path to data JSON file")
     parser.add_argument("--working-dir", type=Path, default=None,
                         help="Local scratch directory. Input files are copied here; "
                              "results are copied back to their original destinations on completion.")
     args = parser.parse_args()
 
-    params = load_params(args.params_json)
-
     with open(args.data_json) as f:
         data = json.load(f)
+
+    # Resolve params_file: relative paths are anchored to root_path
+    params_file = Path(data["params_file"])
+    if not params_file.is_absolute():
+        root = Path(data["root_path"]) if "root_path" in data else Path(".")
+        params_file = root / params_file
+
+    params = load_params(params_file)
 
     job_id = data["job_id"]
     original_job_root_dir = Path(data["job_root_dir"])
