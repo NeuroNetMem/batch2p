@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="ofl-2p-analysis" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="$USER_HOME$/miniforge3" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="ofl_2p_analysis" project-jdk-type="Python SDK" />
 </project>

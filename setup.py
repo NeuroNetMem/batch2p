@@ -20,6 +20,7 @@ setup(
     entry_points={
         'console_scripts': [
             'totalsync-decode=totalsync_utils.cli:main',
+            'suite3dbatch=suite3dbatch.cli:main',
         ],
     },
     python_requires='>=3.7',
