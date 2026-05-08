@@ -1,0 +1,2 @@
+[console_scripts]
+totalsync-decode = totalsync_utils.cli:main

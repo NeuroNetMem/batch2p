@@ -1,0 +1,9 @@
+numpy
+scipy
+cobs
+tqdm
+matplotlib
+pandas
+pynapple
+seaborn
+ipympl

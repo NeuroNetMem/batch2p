@@ -21,6 +21,7 @@ setup(
         'console_scripts': [
             'totalsync-decode=totalsync_utils.cli:main',
             'suite3dbatch=suite3dbatch.cli:main',
+            'totalsync-2p-sync=totalsync_2p.cli:main',
         ],
     },
     python_requires='>=3.7',
