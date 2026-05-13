@@ -5,6 +5,11 @@ ofl_2p_analysis.egg-info/dependency_links.txt
 ofl_2p_analysis.egg-info/entry_points.txt
 ofl_2p_analysis.egg-info/requires.txt
 ofl_2p_analysis.egg-info/top_level.txt
+suite3dbatch/__init__.py
+suite3dbatch/cli.py
+totalsync_2p/__init__.py
+totalsync_2p/cli.py
+totalsync_2p/sync.py
 totalsync_utils/__init__.py
 totalsync_utils/__main__.py
 totalsync_utils/cli.py

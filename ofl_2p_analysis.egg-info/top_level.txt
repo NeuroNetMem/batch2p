@@ -1,1 +1,3 @@
+suite3dbatch
+totalsync_2p
 totalsync_utils

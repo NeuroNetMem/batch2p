@@ -1,10 +1,16 @@
 {
   "root_path": "/data/ofl_2p/20251118",
 
+  "params_file": "/home/battaglia/src/ofl_2p_analysis/docs/params_default.json",
   "data": [
     "00001/477116_20251118_00001.tif"
   ],
 
+  "behavior_data": [
+    "20251118-152602_925.b64"
+  ],
+
+  "pinsheet_file": "/home/battaglia/src/ofl_2p_analysis/docs/pinSheet_2026.json",
   "tiff_trim_size": 9999,
   "add_offset": false,
   "block_size": 3,

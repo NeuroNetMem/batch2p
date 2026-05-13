@@ -23,6 +23,8 @@ os.chdir(os.path.dirname(os.path.abspath("")))
 from suite3d.job import Job
 from suite3d import io
 
+from totalsync_2p.sync import synchronize
+
 
 class TeeStream:
     """Write to both a stream and a file simultaneously."""
@@ -89,6 +91,17 @@ def params_to_json_serializable(params: dict) -> dict:
     return out
 
 
+def collect_b64s(data: dict) -> list[Path]:
+    root = Path(data["root_path"]) if "root_path" in data else Path(".")
+    b64s = []
+    for item in data["behavior_data"]:
+        p = root / item
+        if p.suffix.lower() != ".b64":
+            raise TypeError(f"Expected a .b64 file in behavior_data, got: {p}")
+        b64s.append(p)
+    return b64s
+
+
 def copy_tifs_to_working_dir(tifs: list[Path], dest_dir: Path) -> list[Path]:
     dest_dir.mkdir(parents=True, exist_ok=True)
     copied = []
@@ -142,6 +155,22 @@ def main():
     for t in tifs:
         print(f"  {t}")
 
+    has_behavior = "behavior_data" in data
+    if has_behavior:
+        b64_files = collect_b64s(data)
+        if len(b64_files) != len(original_tifs):
+            raise ValueError(
+                f"behavior_data has {len(b64_files)} entries but data has "
+                f"{len(original_tifs)} tif files; counts must match."
+            )
+        pinsheet_file = Path(data["pinsheet_file"])
+        if not pinsheet_file.is_absolute():
+            root = Path(data["root_path"]) if "root_path" in data else Path(".")
+            pinsheet_file = root / pinsheet_file
+    else:
+        b64_files = []
+        pinsheet_file = None
+
     # Within the session temp directory, mirror the last path component of each root dir
     if working_dir is not None:
         job_root_dir = working_dir / original_job_root_dir.name
@@ -167,9 +196,15 @@ def main():
             print(f"\nSession temp directory: {working_dir}")
             print("Copying input files to working directory...")
             tifs = copy_tifs_to_working_dir(tifs, working_dir / "input_tifs")
+            if has_behavior:
+                b64_files = copy_tifs_to_working_dir(b64_files, working_dir / "input_b64s")
             print("Done copying.")
 
+        # Save pre-split tif paths for behavioral sync (b64 files are per-session, not per-chunk)
+        tifs_for_sync = list(tifs)
+
         chunk_size = int(data.get("tiff_trim_size", 0))
+
         if chunk_size:
             if working_dir is not None:
                 # Split inside the working directory; cleaned up with it at the end
@@ -215,6 +250,15 @@ def main():
 
         job.export_results(results_path, result_dir_name="rois")
 
+        if has_behavior:
+            print("\nRunning behavioral synchronization...")
+            behavior_sync_dir = results_root_dir / "behavior_sync"
+            behavior_sync_dir.mkdir(parents=True, exist_ok=True)
+            for tif, b64 in zip(tifs_for_sync, b64_files):
+                print(f"  Synchronizing {tif.name} + {b64.name}")
+                synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file))
+            print("Behavioral synchronization done.")
+
     finally:
         # Restore streams and flush log before copying it back
         sys.stdout = original_stdout
@@ -246,7 +290,18 @@ def main():
                 original_job_root_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copytree(str(working_job_path), str(original_job_path))
 
-            # Clean up session temp directory (input copies, split tifs, working outputs)
+            # Copy behavior_sync directory back
+            if has_behavior:
+                working_behavior_sync = results_root_dir / "behavior_sync"
+                original_behavior_sync = original_results_root_dir / "behavior_sync"
+                if working_behavior_sync.exists():
+                    print(f"Copying behavior_sync back to {original_behavior_sync} ...")
+                    if original_behavior_sync.exists():
+                        shutil.rmtree(original_behavior_sync)
+                    original_results_root_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(str(working_behavior_sync), str(original_behavior_sync))
+
+            # Clean up session temp directory (input copies, split tifs, working outputs, b64s)
             print(f"Cleaning up session temp directory: {working_dir} ...")
             shutil.rmtree(working_dir)
             print("Done.")
