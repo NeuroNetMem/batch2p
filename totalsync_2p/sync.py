@@ -1,6 +1,7 @@
 """Core synchronization logic for aligning tif frames to behavioral telemetry."""
 
 import pickle
+import re
 import warnings
 from pathlib import Path
 
@@ -113,6 +114,10 @@ def closest_match_indices_sorted(A, B, max_tolerance):
     return matches, np.array(unmatched_A_indices, dtype=int), unmatched_B_indices
 
 
+def normalize_underscores(s: str) -> str:
+    return re.sub(r'_+', '_', s).rstrip('_')
+
+
 def fix_tsync_time(log_times: np.ndarray) -> np.ndarray:
     skips = -np.where(
         np.diff(log_times) < 0,
@@ -158,6 +163,9 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
         Pynapple Tsd mapping scanner time -> tif frame index.
     {session}_behavior_sync_stats.pkl
         Dictionary of synchronization statistics.
+    behavior/{key_name}.npz
+        One pynapple Tsd (1-D channels) or TsdFrame (2-D channels) per decoded
+        telemetry key, time-indexed by the corrected TotalSync clock (µs).
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -181,6 +189,21 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
         warnings.warn(f"There are gaps in the timestamps: {stats['gap_locations']}")
 
     tsync_time = fix_tsync_time(log_times)
+
+    # --- Save behavioral telemetry as pynapple objects ---
+    behavior_dir = output_dir / "behavior"
+    behavior_dir.mkdir(parents=True, exist_ok=True)
+    for key in tsync_data:
+        key_name = normalize_underscores(
+            key.replace(" ", "_").replace("(", "_").replace(")", "_")
+        )
+        if tsync_data[key].ndim == 1:
+            tsd = nap.Tsd(t=tsync_time, d=tsync_data[key], time_units='us')
+            tsd.save(behavior_dir / f"{key_name}.npz")
+        elif tsync_data[key].ndim == 2:
+            tsd = nap.TsdFrame(t=tsync_time, d=tsync_data[key], time_units='us')
+            tsd.save(behavior_dir / f"{key_name}.npz")
+
     t_frames = nap.Ts(tsync_time[onsets], time_units='us')
 
     # --- Extract aux barcode from tif ---
