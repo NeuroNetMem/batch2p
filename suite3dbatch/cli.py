@@ -17,12 +17,14 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import tifffile
 
 os.chdir(os.path.dirname(os.path.abspath("")))
 
 from suite3d.job import Job
 from suite3d import io
 
+import pynapple as nap
 from totalsync_2p.sync import synchronize
 
 
@@ -89,6 +91,58 @@ def params_to_json_serializable(params: dict) -> dict:
         else:
             out[k] = v
     return out
+
+
+def get_tif_n_frames(tif_path: Path) -> int:
+    """Return the number of frames in a TIFF file by counting pages."""
+    with tifffile.TiffFile(tif_path) as tif:
+        return len(tif.pages)
+
+
+def create_synced_outputs(
+    tif_files: list[Path],
+    sync_results: list[dict],
+    rois_dir: Path,
+    behavior_sync_dir: Path,
+) -> None:
+    """Select suite3d traces by synced frame indices and save as pynapple TsdFrames.
+
+    For each session, loads F, Fneu, and spks from rois_dir, selects the columns
+    corresponding to synchronized frames (using frames_time_idx.d plus the cumulative
+    frame offset for that TIF), and saves a pynapple TsdFrame per array as
+    {session}_F_sync.npz, {session}_Fneu_sync.npz, {session}_spks_sync.npz.
+    """
+    arrays_to_sync = {}
+    for name in ('F', 'Fneu', 'spks'):
+        npy_path = rois_dir / f"{name}.npy"
+        if npy_path.exists():
+            arrays_to_sync[name] = np.load(npy_path)
+
+    if not arrays_to_sync:
+        print("  No F/Fneu/spks arrays found in rois directory, skipping synced outputs.")
+        return
+
+    # Cumulative frame offset: frames from tif[i] start at offset[i] in the suite3d output
+    frame_offsets = [0]
+    for tif in tif_files[:-1]:
+        frame_offsets.append(frame_offsets[-1] + get_tif_n_frames(tif))
+
+    for tif, stats, offset in zip(tif_files, sync_results, frame_offsets):
+        frames_time_idx = stats['frames_time_idx']
+        session = stats['session']
+        local_indices = frames_time_idx.d.astype(int)
+        global_indices = local_indices + offset
+
+        for name, arr in arrays_to_sync.items():
+            selected = arr[:, global_indices]  # (n_cells, n_selected_frames)
+            tsd_frame = nap.TsdFrame(
+                t=frames_time_idx.t,
+                d=selected.T,  # (n_selected_frames, n_cells)
+                time_units='s',
+            )
+            out_path = behavior_sync_dir / f"{session}_{name}_sync.npz"
+            tsd_frame.save(out_path)
+            print(f"    Saved {out_path.name} ({tsd_frame.shape})")
 
 
 def collect_b64s(data: dict) -> list[Path]:
@@ -254,10 +308,21 @@ def main():
             print("\nRunning behavioral synchronization...")
             behavior_sync_dir = results_root_dir / "behavior_sync"
             behavior_sync_dir.mkdir(parents=True, exist_ok=True)
+            sync_results = []
             for tif, b64 in zip(tifs_for_sync, b64_files):
                 print(f"  Synchronizing {tif.name} + {b64.name}")
-                synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file))
+                stats = synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file))
+                sync_results.append(stats)
             print("Behavioral synchronization done.")
+
+            print("\nCreating behavior-synced suite3d outputs...")
+            create_synced_outputs(
+                tif_files=tifs_for_sync,
+                sync_results=sync_results,
+                rois_dir=results_path / f"s3d-results-{job_id}",
+                behavior_sync_dir=behavior_sync_dir,
+            )
+            print("Synced outputs done.")
 
     finally:
         # Restore streams and flush log before copying it back
