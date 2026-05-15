@@ -32,21 +32,21 @@ suite3dbatch <data.json> [--working-dir DIR]
 
 ## data.json fields
 
-| Field | Required | Description |
-|---|---|---|
-| `params_file` | yes | Path to the Suite3D parameters JSON file. Relative paths are resolved against `root_path`. |
-| `job_id` | yes | Unique string identifier for this run. Used as directory name for job and results output. |
-| `job_root_dir` | yes | Directory in which the Suite3D job folder (`s3d-<job_id>/`) is created. |
-| `data` | yes | List of input items (TIFF files or directories). See [Input files](#input-files). |
-| `root_path` | no | Base path prepended to all relative entries in `data` and to a relative `params_file`. |
-| `results_root_dir` | no | Directory under which the results folder (`<job_id>/`) is created. Defaults to `<job_root_dir>/results`. |
-| `working_dir` | no | Same as `--working-dir`; the CLI flag takes precedence if both are provided. |
-| `tiff_trim_size` | no | If `> 0`, split each input TIFF into chunks of this many frames before processing. |
-| `block_size` | no | Block size passed to `split_3d_tiff_into_chunks` (default `3`). Only used when `tiff_trim_size > 0`. |
-| `add_offset` | no | Boolean passed to `split_3d_tiff_into_chunks` (default `false`). Only used when `tiff_trim_size > 0`. |
-| `temp_dir` | no | Parent directory for the TIFF-split temp folder when no `working_dir` is set. Defaults to the system temp directory. |
+| Field | Required | Description                                                                                                                                                                        |
+|---|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `params_file` | yes | Path to the Suite3D parameters JSON file. Relative paths are resolved against `root_path`.                                                                                         |
+| `job_id` | yes | Unique string identifier for this run. Used as directory name for job and results output.                                                                                          |
+| `job_root_dir` | yes | Directory in which the Suite3D job folder (`s3d-<job_id>/`) is created.                                                                                                            |
+| `data` | yes | List of input items (TIFF files or directories). See [Input files](#input-files).                                                                                                  |
+| `root_path` | no | Base path prepended to all relative entries in `data` and to a relative `params_file`.                                                                                             |
+| `results_root_dir` | no | Directory under which the results folder (`<job_id>/`) is created. Defaults to `<job_root_dir>/results`.                                                                           |
+| `working_dir` | no | Same as `--working-dir`; the CLI flag takes precedence if both are provided.                                                                                                       |
+| `tiff_trim_size` | no | If `> 0`, split each input TIFF into chunks of this many frames before processing.                                                                                                 |
+| `block_size` | no | Block size passed to `split_3d_tiff_into_chunks` (default `3`). For volumetric imaging.                                                                                            |
+| `add_offset` | no | Boolean passed to `split_3d_tiff_into_chunks` (default `false`). Only used when `tiff_trim_size > 0`.                                                                              |
+| `temp_dir` | no | Parent directory for the TIFF-split temp folder when no `working_dir` is set. Defaults to the system temp directory.                                                               |
 | `behavior_data` | no | List of `.b64` TotalSync telemetry files, one per entry in `data` (same order). When present, behavioral synchronization is run after the imaging pipeline. Requires `pinsheet_file`. |
-| `pinsheet_file` | no (yes if `behavior_data` set) | Path to the TotalSync pin mapping JSON file. Relative paths are resolved against `root_path`. |
+| `pinsheet_file` | no (yes if `behavior_data` set) | Path to the TotalSync pin mapping JSON file. Relative paths are resolved against `root_path`.                                                                                      |
 
 ### Input files
 

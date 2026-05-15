@@ -133,12 +133,17 @@ def create_synced_outputs(
         session = stats['session']
         local_indices = frames_time_idx.d.astype(int)
 
+        if block_size > 1:
+            local_indices = np.unique((local_indices / block_size).astype(int))
+            t_frames = frames_time_idx.t[local_indices * block_size]
+        else:
+            t_frames = frames_time_idx.t
         global_indices = local_indices + offset
 
         for name, arr in arrays_to_sync.items():
             selected = arr[:, global_indices]  # (n_cells, n_selected_frames)
             tsd_frame = nap.TsdFrame(
-                t=frames_time_idx.t,
+                t=t_frames,
                 d=selected.T,  # (n_selected_frames, n_cells)
                 time_units='s',
             )
