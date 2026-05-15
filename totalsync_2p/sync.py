@@ -195,7 +195,7 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
     behavior_dir.mkdir(parents=True, exist_ok=True)
     for key in tsync_data:
         key_name = normalize_underscores(
-            key.replace(" ", "_").replace("(", "_").replace(")", "_")
+            key.replace(" ", "_").replace("(", "_").replace(")", "_").replace("-", "_")
         )
         if tsync_data[key].ndim == 1:
             tsd = nap.Tsd(t=tsync_time, d=tsync_data[key], time_units='us')
@@ -248,7 +248,9 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
                 "With no barcode, and gaps in the timestamps, alignment will be done "
                 "up to the first gap"
             )
-            ep = nap.IntervalSet(start=0, end=stats['gap_locations'][0], time_units='us')
+            # find the first gap location after the scanner was started
+            align_stop = stats['gap_locations'][np.where(stats['gap_locations'] > t_frames[0].t * 1e6)[0][0]]
+            ep = nap.IntervalSet(start=0, end=align_stop, time_units='us')
             t_frames = t_frames.restrict(ep)
 
         frames_time_idx = nap.Tsd(

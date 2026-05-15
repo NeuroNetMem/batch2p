@@ -104,6 +104,7 @@ def create_synced_outputs(
     sync_results: list[dict],
     rois_dir: Path,
     behavior_sync_dir: Path,
+    block_size: int = 3,
 ) -> None:
     """Select suite3d traces by synced frame indices and save as pynapple TsdFrames.
 
@@ -131,6 +132,7 @@ def create_synced_outputs(
         frames_time_idx = stats['frames_time_idx']
         session = stats['session']
         local_indices = frames_time_idx.d.astype(int)
+
         global_indices = local_indices + offset
 
         for name, arr in arrays_to_sync.items():
@@ -321,6 +323,7 @@ def main():
                 sync_results=sync_results,
                 rois_dir=results_path / f"s3d-results-{job_id}",
                 behavior_sync_dir=behavior_sync_dir,
+                block_size=block_size,
             )
             print("Synced outputs done.")
 
