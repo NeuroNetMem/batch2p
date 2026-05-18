@@ -128,9 +128,16 @@ def create_synced_outputs(
     for tif in tif_files[:-1]:
         frame_offsets.append(frame_offsets[-1] + get_tif_n_frames(tif))
 
-    for tif, stats, offset in zip(tif_files, sync_results, frame_offsets):
+    time_offsets = [0]
+
+    for stats in sync_results:
+        time_offsets.append(time_offsets[-1] + stats['frames_time_idx'].t[-1])
+
+    for i, stats in enumerate(sync_results):
+        stats['time_offsets'] = time_offsets[i]
+
+    for tif, stats, offset, time_offset in zip(tif_files, sync_results, frame_offsets, time_offsets):
         frames_time_idx = stats['frames_time_idx']
-        session = stats['session']
         local_indices = frames_time_idx.d.astype(int)
 
         if block_size > 1:
@@ -138,16 +145,20 @@ def create_synced_outputs(
             t_frames = frames_time_idx.t[local_indices * block_size]
         else:
             t_frames = frames_time_idx.t
-        global_indices = local_indices + offset
+        # global_indices = local_indices + offset
+        global_indices = local_indices
+        t_frames = t_frames + time_offset
 
         for name, arr in arrays_to_sync.items():
+            global_indices = global_indices[np.where(global_indices < arr.shape[1])]
             selected = arr[:, global_indices]  # (n_cells, n_selected_frames)
+            t = t_frames[:len(global_indices)]
             tsd_frame = nap.TsdFrame(
-                t=t_frames,
+                t=t,
                 d=selected.T,  # (n_selected_frames, n_cells)
                 time_units='s',
             )
-            out_path = behavior_sync_dir / f"{session}_{name}_sync.npz"
+            out_path = behavior_sync_dir / f"{name}_sync.npz"
             tsd_frame.save(out_path)
             print(f"    Saved {out_path.name} ({tsd_frame.shape})")
 
@@ -199,6 +210,7 @@ def main():
                                                str(original_job_root_dir / "results")))
     original_results_path = original_results_root_dir / job_id
 
+    fill_tsync_gaps = bool(data.get("fill_tsync_gaps", False))
     # working_dir: CLI arg takes precedence over data.json
     working_dir_base = args.working_dir or (Path(data["working_dir"]) if "working_dir" in data else None)
 
@@ -318,7 +330,8 @@ def main():
             sync_results = []
             for tif, b64 in zip(tifs_for_sync, b64_files):
                 print(f"  Synchronizing {tif.name} + {b64.name}")
-                stats = synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file))
+                stats = synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file),
+                                    fill_gaps=fill_tsync_gaps)
                 sync_results.append(stats)
             print("Behavioral synchronization done.")
 

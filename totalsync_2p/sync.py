@@ -4,7 +4,7 @@ import pickle
 import re
 import warnings
 from pathlib import Path
-
+from typing import Dict, Union
 import numpy as np
 import pynapple as nap
 import tifffile
@@ -128,8 +128,25 @@ def fix_tsync_time(log_times: np.ndarray) -> np.ndarray:
     cs2 = np.hstack((0, cs))
     return log_times + cs2
 
+def fill_gaps_in_tframes(t_frames: np.ndarray) -> np.ndarray:
+    median_interval = np.median(np.diff(t_frames))
 
-def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: str) -> dict:
+    t_frames_filled = t_frames.copy()
+    gap_locations = np.where(np.diff(t_frames_filled) > median_interval * 1.5)[0]
+
+    while len(gap_locations) > 0:
+        loc = gap_locations[0]
+        gap_size = np.diff(t_frames_filled)[loc]
+        t_frame_before = t_frames_filled[loc]
+        t_frame_after = t_frames_filled[loc + 1]
+        n_frames_to_fill = int(gap_size / median_interval)
+        frames_to_fill = np.linspace(t_frame_before, t_frame_after, n_frames_to_fill + 1)
+        t_frames_filled = np.insert(t_frames_filled, loc + 1, frames_to_fill[1:-1])
+        gap_locations = np.where(np.diff(t_frames_filled) > median_interval * 1.5)[0]
+
+    return t_frames_filled
+
+def synchronize(tif_file: str, b64_file: str, output_dir_str: str, pin_sheet_file: str, fill_gaps: bool=False) -> Dict[str, Union[str, nap.Tsd, np.ndarray]]:
     """Synchronize a tif imaging file with a b64 behavioral telemetry file.
 
     Parameters
@@ -138,10 +155,12 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
         Path to the ScanImage tif recording.
     b64_file : str
         Path to the TotalSync .b64 behavioral telemetry file.
-    output_dir : str
+    output_dir_str: str
         Directory where output files will be saved.
     pin_sheet_file : str
         Path to the pin mapping JSON file.
+    fill_gaps : bool, default=False
+        Whether to fill gaps in the timestamp sequence using linear interpolation
 
     Returns
     -------
@@ -167,7 +186,7 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
         One pynapple Tsd (1-D channels) or TsdFrame (2-D channels) per decoded
         telemetry key, time-indexed by the corrected TotalSync clock (µs).
     """
-    output_dir = Path(output_dir)
+    output_dir = Path(output_dir_str)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     session = Path(b64_file).stem
@@ -184,12 +203,12 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
     onsets = np.nonzero(np.diff(frame_clock) == 1)[0] + 1
 
     stats['max_ts_gap'] = int(np.max(np.diff(log_times)))
-    stats['gap_locations'] = log_times[np.where(np.diff(log_times) > 30000)]
-    if len(stats['gap_locations']) > 0:
-        warnings.warn(f"There are gaps in the timestamps: {stats['gap_locations']}")
+
 
     tsync_time = fix_tsync_time(log_times)
-
+    stats['gap_locations'] = tsync_time[np.where(np.diff(log_times) > 30000)]
+    if len(stats['gap_locations']) > 0:
+        warnings.warn(f"There are gaps in the timestamps: {stats['gap_locations']}")
     # --- Save behavioral telemetry as pynapple objects ---
     behavior_dir = output_dir / "behavior"
     behavior_dir.mkdir(parents=True, exist_ok=True)
@@ -244,14 +263,22 @@ def synchronize(tif_file: str, b64_file: str, output_dir: str, pin_sheet_file: s
             "first tif frame"
         )
         if len(stats['gap_locations']) > 0:
-            warnings.warn(
-                "With no barcode, and gaps in the timestamps, alignment will be done "
-                "up to the first gap"
-            )
-            # find the first gap location after the scanner was started
-            align_stop = stats['gap_locations'][np.where(stats['gap_locations'] > t_frames[0].t * 1e6)[0][0]]
-            ep = nap.IntervalSet(start=0, end=align_stop, time_units='us')
-            t_frames = t_frames.restrict(ep)
+            if fill_gaps:
+                t_frames = nap.Ts(fill_gaps_in_tframes(t_frames.t), time_units='s')
+                stats['orig_gap_locations'] = stats['gap_locations']
+                stats['orig_max_ts_gap'] = stats['max_ts_gap']
+                stats['gap_locations'] = np.empty(0)
+                stats['max_ts_gap'] = 0
+
+            else:
+                warnings.warn(
+                    "With no barcode, and gaps in the timestamps, alignment will be done "
+                    "up to the first gap"
+                )
+                # find the first gap location after the scanner was started
+                align_stop = stats['gap_locations'][np.where(stats['gap_locations'] > t_frames[0].t * 1e6)[0][0]]
+                ep = nap.IntervalSet(start=0, end=align_stop, time_units='us')
+                t_frames = t_frames.restrict(ep)
 
         frames_time_idx = nap.Tsd(
             t=t_frames.t,
