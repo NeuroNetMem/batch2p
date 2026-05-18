@@ -16,7 +16,7 @@ This registers the `batch2p` command. Alternatively the script can be run
 directly without installation:
 
 ```bash
-python scripts/batch2p_run.py data.json
+python scripts/batch2p_run.py data_suite3d.json
 ```
 
 ## Usage
@@ -70,7 +70,7 @@ Each entry in `data` is resolved relative to `root_path` (if present) and may be
 {
   "source_extraction": "suite3d",
   "root_path": "/data/ofl_2p/20251118",
-  "params_file": "params_default.json",
+  "params_file": "params_default_suite3d.json",
   "data": [
     "00001/477116_20251118_00001.tif"
   ],
@@ -90,7 +90,7 @@ With behavioral synchronization:
 {
   "source_extraction": "suite3d",
   "root_path": "/data/ofl_2p/20251118",
-  "params_file": "params_default.json",
+  "params_file": "params_default_suite3d.json",
   "data": [
     "00001/477116_20251118_00001.tif"
   ],

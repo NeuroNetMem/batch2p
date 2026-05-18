@@ -3,7 +3,7 @@
 Batch 2-photon preprocessing – CLI entry point.
 
 Usage:
-    batch2p <data.json> [--working-dir <dir>]
+    batch2p <data_suite3d.json> [--working-dir <dir>]
 
 The data JSON file must contain a "source_extraction" field specifying the
 algorithm (e.g. "suite3d"). Synchronization is handled generically and depends
