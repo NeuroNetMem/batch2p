@@ -1,6 +1,8 @@
 {
   "root_path": "/data/ofl_2p/20251118",
 
+  "source_extraction": "suite3d",
+
   "params_file": "/home/battaglia/src/ofl_2p_analysis/docs/params_default.json",
   "data": [
     "00001/477116_20251118_00001.tif"

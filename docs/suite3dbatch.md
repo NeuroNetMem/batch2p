@@ -1,10 +1,10 @@
-# suite3dbatch
+# batch2p
 
-Batch Suite3D preprocessing script. Runs the full Suite3D pipeline (init pass →
-registration → correlation map → ROI segmentation → neuropil masks → extraction /
-deconvolution → export) from a single JSON configuration file. Optionally runs
-behavioral synchronization (via `totalsync_2p`) after the imaging pipeline when
-`behavior_data` is present in the configuration.
+Batch 2-photon preprocessing script. Runs a configurable source extraction pipeline
+from a single JSON configuration file. Optionally runs behavioral synchronization
+(via `totalsync_2p`) after the imaging pipeline when `behavior_data` is present in
+the configuration. The source extraction algorithm is selected via the
+`source_extraction` field; currently supported: `suite3d`.
 
 ## Installation
 
@@ -12,17 +12,17 @@ behavioral synchronization (via `totalsync_2p`) after the imaging pipeline when
 pip install -e .
 ```
 
-This registers the `suite3dbatch` command. Alternatively the script can be run
+This registers the `batch2p` command. Alternatively the script can be run
 directly without installation:
 
 ```bash
-python scripts/suite3dbatch.py data.json
+python scripts/batch2p_run.py data.json
 ```
 
 ## Usage
 
 ```
-suite3dbatch <data.json> [--working-dir DIR]
+batch2p <data.json> [--working-dir DIR]
 ```
 
 | Argument | Description |
@@ -32,21 +32,30 @@ suite3dbatch <data.json> [--working-dir DIR]
 
 ## data.json fields
 
-| Field | Required | Description                                                                                                                                                                        |
-|---|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `params_file` | yes | Path to the Suite3D parameters JSON file. Relative paths are resolved against `root_path`.                                                                                         |
-| `job_id` | yes | Unique string identifier for this run. Used as directory name for job and results output.                                                                                          |
-| `job_root_dir` | yes | Directory in which the Suite3D job folder (`s3d-<job_id>/`) is created.                                                                                                            |
-| `data` | yes | List of input items (TIFF files or directories). See [Input files](#input-files).                                                                                                  |
-| `root_path` | no | Base path prepended to all relative entries in `data` and to a relative `params_file`.                                                                                             |
-| `results_root_dir` | no | Directory under which the results folder (`<job_id>/`) is created. Defaults to `<job_root_dir>/results`.                                                                           |
-| `working_dir` | no | Same as `--working-dir`; the CLI flag takes precedence if both are provided.                                                                                                       |
-| `tiff_trim_size` | no | If `> 0`, split each input TIFF into chunks of this many frames before processing.                                                                                                 |
-| `block_size` | no | Block size passed to `split_3d_tiff_into_chunks` (default `3`). For volumetric imaging.                                                                                            |
-| `add_offset` | no | Boolean passed to `split_3d_tiff_into_chunks` (default `false`). Only used when `tiff_trim_size > 0`.                                                                              |
-| `temp_dir` | no | Parent directory for the TIFF-split temp folder when no `working_dir` is set. Defaults to the system temp directory.                                                               |
+### Generic fields (all algorithms)
+
+| Field | Required | Description |
+|---|---|---|
+| `source_extraction` | no | Source extraction algorithm to use. Default: `"suite3d"`. |
+| `job_id` | yes | Unique string identifier for this run. Used as directory name for job and results output. |
+| `job_root_dir` | yes | Directory in which the algorithm's job folder is created. |
+| `data` | yes | List of input items (TIFF files or directories). See [Input files](#input-files). |
+| `root_path` | no | Base path prepended to all relative entries in `data`, `params_file`, and `pinsheet_file`. |
+| `results_root_dir` | no | Directory under which the results folder (`<job_id>/`) is created. Defaults to `<job_root_dir>/results`. |
+| `working_dir` | no | Same as `--working-dir`; the CLI flag takes precedence if both are provided. |
+| `tiff_trim_size` | no | If `> 0`, split each input TIFF into chunks of this many frames before processing. |
+| `block_size` | no | Block size used for volumetric imaging (default `3`). Passed to TIFF splitting and synced-output generation. |
+| `add_offset` | no | Boolean passed to `split_3d_tiff_into_chunks` (default `false`). Only used when `tiff_trim_size > 0`. |
+| `temp_dir` | no | Parent directory for the TIFF-split temp folder when no `working_dir` is set. Defaults to the system temp directory. |
 | `behavior_data` | no | List of `.b64` TotalSync telemetry files, one per entry in `data` (same order). When present, behavioral synchronization is run after the imaging pipeline. Requires `pinsheet_file`. |
-| `pinsheet_file` | no (yes if `behavior_data` set) | Path to the TotalSync pin mapping JSON file. Relative paths are resolved against `root_path`.                                                                                      |
+| `pinsheet_file` | no (yes if `behavior_data` set) | Path to the TotalSync pin mapping JSON file. Relative paths are resolved against `root_path`. |
+| `fill_tsync_gaps` | no | If `true`, interpolate timestamp gaps in the behavioral log rather than discarding frames after the first gap (default `false`). |
+
+### Suite3D-specific fields
+
+| Field | Required | Description |
+|---|---|---|
+| `params_file` | yes | Path to the Suite3D parameters JSON file. Relative paths are resolved against `root_path`. |
 
 ### Input files
 
@@ -59,6 +68,7 @@ Each entry in `data` is resolved relative to `root_path` (if present) and may be
 
 ```json
 {
+  "source_extraction": "suite3d",
   "root_path": "/data/ofl_2p/20251118",
   "params_file": "params_default.json",
   "data": [
@@ -78,6 +88,7 @@ With behavioral synchronization:
 
 ```json
 {
+  "source_extraction": "suite3d",
   "root_path": "/data/ofl_2p/20251118",
   "params_file": "params_default.json",
   "data": [
@@ -93,6 +104,7 @@ With behavioral synchronization:
   "tiff_trim_size": 9999,
   "block_size": 3,
   "add_offset": false,
+  "fill_tsync_gaps": true,
   "temp_dir": "/data/temp"
 }
 ```
@@ -101,7 +113,7 @@ With behavioral synchronization:
 
 When `--working-dir DIR` (or `working_dir` in `data.json`) is provided, the script
 isolates all intermediate work in a uniquely-named temporary subdirectory inside
-`DIR` (e.g. `DIR/suite3dbatch_<job_id>_<random>/`). This allows multiple instances
+`DIR` (e.g. `DIR/batch2p_<job_id>_<random>/`). This allows multiple instances
 to run in parallel against the same scratch mount.
 
 Steps performed when a working directory is used:
@@ -109,17 +121,18 @@ Steps performed when a working directory is used:
 1. Input TIFF files are copied to `<session_tmp>/input_tifs/`.
 2. If `behavior_data` is present, `.b64` files are copied to `<session_tmp>/input_b64s/`.
 3. If TIFF splitting is requested it runs inside `<session_tmp>/split_tifs/`.
-4. The Suite3D job and results are written inside `<session_tmp>`.
+4. The extraction job and results are written inside `<session_tmp>`.
 5. On completion (or on error), the results folder is copied back to `results_root_dir/<job_id>/`
-   and the job folder (`s3d-<job_id>/`) is copied back to `job_root_dir/`.
+   and the job folder is copied back to `job_root_dir/`.
 6. If behavioral synchronization ran, `behavior_sync/` is copied back to `results_root_dir/behavior_sync/`.
 7. The session temp directory (including all input copies and `.b64` files) is deleted.
 
 ## Behavioral synchronization
 
 When `behavior_data` is present in `data.json`, the script runs `totalsync_2p.synchronize()`
-for each (tif, b64) pair after the Suite3D pipeline completes. The `.b64` files must be
-listed in the same order as `data`, one file per tif entry.
+for each (tif, b64) pair after the extraction pipeline completes. The `.b64` files must be
+listed in the same order as `data`, one file per tif entry. Synchronization depends only on
+the original TIF file and the `.b64` file and is not algorithm-specific.
 
 Outputs are written to `results_root_dir/behavior_sync/` and include, per session:
 
@@ -129,10 +142,23 @@ Outputs are written to `results_root_dir/behavior_sync/` and include, per sessio
 | `<session>_frames_time_idx.npz` | Pynapple `Tsd` mapping scanner time (s) → tif frame index. |
 | `<session>_behavior_sync_stats.pkl` | Synchronization statistics (barcode shift, match table, gap info). |
 
+After synchronization, algorithm-specific synced outputs are created. For `suite3d`,
+`F`, `Fneu`, and `spks` traces are selected at the synchronized frame indices and
+saved as pynapple `TsdFrame` objects (`F_sync.npz`, `Fneu_sync.npz`, `spks_sync.npz`)
+in `behavior_sync/`.
+
 Alignment strategy:
 
 - **With barcode** – a cross-correlogram between the tif aux trigger and the `Barcode (Scanner)` channel is used to find the time shift, then tif frames are matched one-to-one to scanner frame-clock pulses within a 25 ms tolerance.
-- **Without barcode** – the first scanner frame-clock pulse is assumed to correspond to the first tif frame. If timestamp gaps are present in the behavioral log, alignment is restricted to the period before the first gap.
+- **Without barcode** – the first scanner frame-clock pulse is assumed to correspond to the first tif frame. If timestamp gaps are present in the behavioral log, alignment is restricted to the period before the first gap (or gaps are interpolated if `fill_tsync_gaps` is `true`).
+
+## Adding a new source extraction algorithm
+
+1. Create `batch2p/extractors/<name>.py` implementing a subclass of `SourceExtractor`
+   from `batch2p.extractors.base`. The subclass must implement `run()`,
+   `get_job_subdir()`, and `create_synced_outputs()`.
+2. Register it in `batch2p/extractors/__init__.py` by adding an entry to `_EXTRACTORS`.
+3. Set `"source_extraction": "<name>"` in `data.json`.
 
 ## Logging
 
@@ -143,5 +169,5 @@ run log is available alongside the results even when the script is run non-inter
 
 Before launching the pipeline the script writes two files into the results directory:
 
-- `params_used.json` – the Suite3D parameters actually used.
 - `data_used.json` – the run configuration with all file paths made absolute.
+- `params_used.json` – algorithm-specific parameters actually used (e.g. Suite3D params JSON).
