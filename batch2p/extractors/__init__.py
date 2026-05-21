@@ -1,8 +1,10 @@
 from .base import SourceExtractor
 from .suite3d import Suite3DExtractor
+from .suite2p import Suite2PExtractor
 
 _EXTRACTORS = {
     "suite3d": Suite3DExtractor,
+    "suite2p": Suite2PExtractor,
 }
 
 

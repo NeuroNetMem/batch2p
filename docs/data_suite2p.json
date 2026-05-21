@@ -3,7 +3,7 @@
 
   "source_extraction": "suite2p",
 
-  "params_file": "/home/battaglia/src/ofl_2p_analysis/docs/params_default.json",
+  "params_file": "/home/battaglia/src/ofl_2p_analysis/docs/params_default_suite2p.json",
   "data": [
     "00001/477116_20251118_00001.tif"
   ],

@@ -190,6 +190,11 @@ def main():
             for t in tifs:
                 print(f"  {t}")
 
+        # When a working directory is used, let the extractor know so it can place
+        # any algorithm-level scratch files (e.g. suite2p fast_disk) there.
+        if working_dir is not None:
+            data["temp_dir"] = str(working_dir)
+
         # Save reproducibility files
         extractor.save_reproducibility_info(results_path)
 
