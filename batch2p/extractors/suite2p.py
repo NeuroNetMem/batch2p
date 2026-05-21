@@ -41,19 +41,23 @@ def _detect_torch_device() -> str:
     return "cpu"
 
 
-def _load_settings(params_path: Path) -> dict:
-    """Load suite2p settings by merging params JSON with suite2p defaults."""
+def _load_settings(params_path: Path) -> tuple[dict, dict]:
+    """Load suite2p settings, returning (user_params, merged_settings).
+
+    user_params: the params as read from the JSON file (with torch_device added
+        if not present), before merging with suite2p defaults.
+    merged_settings: suite2p default_settings() updated with user_params.
+    """
     from suite2p.parameters import default_settings
 
-    settings_default = default_settings()
-
     with open(params_path) as f:
-        params = json.load(f)
+        user_params = json.load(f)
 
-    if "torch_device" not in params:
-        params["torch_device"] = _detect_torch_device()
+    if "torch_device" not in user_params:
+        user_params["torch_device"] = _detect_torch_device()
 
-    return _update_two_level_dict(settings_default, params)
+    merged = _update_two_level_dict(default_settings(), user_params)
+    return user_params, merged
 
 
 def _params_to_json_serializable(params: dict) -> dict:
@@ -196,7 +200,7 @@ class Suite2PExtractor(SourceExtractor):
         params_file = Path(data["params_file"])
         if not params_file.is_absolute():
             params_file = Path(data.get("root_path", ".")) / params_file
-        self.settings = _load_settings(params_file)
+        self.user_params, self.settings = _load_settings(params_file)
 
     def get_job_subdir(self, job_id: str) -> str:
         # Suite2P writes all outputs directly into results_path, so there is no
@@ -205,9 +209,10 @@ class Suite2PExtractor(SourceExtractor):
         return f"s2p-{job_id}"
 
     def save_reproducibility_info(self, results_path: Path) -> None:
-        saved = _params_to_json_serializable(self.settings)
+        with open(results_path / "params_supplied.json", "w") as f:
+            json.dump(_params_to_json_serializable(self.user_params), f, indent=2)
         with open(results_path / "params_used.json", "w") as f:
-            json.dump(saved, f, indent=2)
+            json.dump(_params_to_json_serializable(self.settings), f, indent=2)
 
     def run(self, tifs: list[Path], job_root_dir: Path, job_id: str, results_path: Path) -> None:
         import suite2p

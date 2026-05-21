@@ -291,3 +291,6 @@ Before launching the pipeline the script writes two files into the results direc
 - `data_used.json` – the run configuration with all file paths made absolute.
 - `params_used.json` – the full settings dictionary actually passed to the algorithm
   (Suite2P: merged two-level dict; Suite3D: params JSON with numpy arrays serialized).
+- `params_supplied.json` *(Suite2P only)* – the parameters as read from the user-supplied
+  `params_file`, before merging with Suite2P defaults. Useful for comparing what was
+  explicitly set versus what was inherited from defaults.
