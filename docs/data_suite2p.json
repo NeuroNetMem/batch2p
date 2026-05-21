@@ -1,9 +1,9 @@
 {
   "root_path": "/data/ofl_2p/20251118",
 
-  "source_extraction": "suite3d",
+  "source_extraction": "suite2p",
 
-  "params_file": "/home/battaglia/src/ofl_2p_analysis/docs/params_default_suite3d.json",
+  "params_file": "/home/battaglia/src/ofl_2p_analysis/docs/params_default.json",
   "data": [
     "00001/477116_20251118_00001.tif"
   ],
@@ -13,7 +13,7 @@
   ],
 
   "pinsheet_file": "/home/battaglia/src/ofl_2p_analysis/docs/pinSheet_2026.json",
-  "tiff_trim_size": 9999,
+  "tiff_trim_size": 0,
   "add_offset": false,
   "block_size": 3,
 
@@ -22,5 +22,5 @@
   "results_root_dir": "/data/ofl_2p/20251118/preprocessing_results",
   "job_root_dir": "/data/ofl_2p/20251118",
   "job_id": "00001split",
-  "temp_dir": "/data/temp"
+  "temp_dir": "/data/temp/scratch"
 }

@@ -1,0 +1,73 @@
+{
+  "nplanes": 3,
+  "nchannels": 1,
+  "functional_chan": 1,
+  "tau": 1.5,
+  "fs": 29.94,
+  "force_sktiff": false,
+  "ignore_flyback": [],
+  "keep_movie_raw": false,
+
+  "run": {
+    "multiplane_parallel": false,
+    "do_registration": true
+  },
+  "classification": {
+    "preclassify": 0.0
+  },
+
+  "io": {
+    "combined": true
+  },
+
+  "registration": {
+    "two_step_registration": true,
+    "nimg_init": 300,
+    "batch_size": 300,
+    "maxregshift": 0.1,
+    "reg_tif": true,
+    "reg_tif_chan2": false,
+     "subpixel": 10,
+    "smooth_sigma_time": 0,
+    "smooth_sigma": 1.15,
+    "th_badframes": 1.0,
+    "norm_frames": true,
+    "nonrigid": true,
+    "snr_thresh": 1.2,
+    "maxregshiftNR": 5
+  },
+
+  "detection": {
+    "block_size": [
+    128,
+    128
+  ],
+    "nbins": 5000,
+    "threshold_scaling": 1.0,
+    "max_overlap": 0.75,
+    "highpass_time": 100,
+    "denoise": true,
+    "soma_crop": true
+  },
+
+  "classification": {
+    "use_builtin_classifier": false
+  },
+
+  "extraction:": {
+    "neuropil_extract": true,
+    "inner_neuropil_radius": 2,
+    "min_neuropil_pixels": 350,
+    "lam_percentile": 50.0,
+    "allow_overlap": false,
+    "neuropil_coefficient": 0.7
+  },
+
+  "dcnv_preprocess": {
+    "baseline": "maximin",
+    "win_baseline": 60.0,
+    "sig_baseline": 10.0,
+    "prctile_baseline": 8.0
+  }
+
+}
