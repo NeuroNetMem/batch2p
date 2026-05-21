@@ -19,7 +19,7 @@
 
   "fill_tsync_gaps": true,
 
-  "results_root_dir": "/data/ofl_2p/20251118/preprocessing_results",
+  "results_root_dir": "/data/ofl_2p/20251118/preprocessing_results_s2p",
   "job_root_dir": "/data/ofl_2p/20251118",
   "job_id": "00001split",
   "temp_dir": "/data/temp/scratch"
