@@ -21,6 +21,7 @@ setup(
         'console_scripts': [
             'totalsync-decode=totalsync_utils.cli:main',
             'batch2p=batch2p.cli:main',
+            'batch2p-gui=batch2p.gui:main',
             'totalsync-2p-sync=totalsync_2p.cli:main',
         ],
     },

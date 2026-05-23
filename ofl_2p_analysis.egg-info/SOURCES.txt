@@ -1,8 +1,10 @@
 setup.py
 batch2p/__init__.py
 batch2p/cli.py
+batch2p/gui.py
 batch2p/extractors/__init__.py
 batch2p/extractors/base.py
+batch2p/extractors/suite2p.py
 batch2p/extractors/suite3d.py
 ofl_2p_analysis.egg-info/PKG-INFO
 ofl_2p_analysis.egg-info/SOURCES.txt
