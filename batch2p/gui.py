@@ -705,6 +705,28 @@ class RunConfigWidget(QWidget):
         out_layout.addWidget(btn_out)
         layout.addWidget(out_box)
 
+        # ── SLURM script generation ───────────────────────────────────────────
+        slurm_box = QGroupBox("SLURM Job Scripts")
+        slurm_layout = QHBoxLayout(slurm_box)
+        self._slurm_cb = QCheckBox("Generate .sh scripts from Jinja2 template")
+        self._slurm_cb.setToolTip(
+            "After generating JSON files, render one SLURM shell script per data.json.\n"
+            "Available template variables: {{ data_file }}, {{ job_id }}, {{ params_file }}."
+        )
+        self._slurm_template_edit = QLineEdit()
+        self._slurm_template_edit.setPlaceholderText("Path to Jinja2 .sh.in template file")
+        self._slurm_template_edit.setEnabled(False)
+        btn_tmpl = QPushButton("Browse…")
+        btn_tmpl.setFixedWidth(70)
+        btn_tmpl.setEnabled(False)
+        btn_tmpl.clicked.connect(self._browse_slurm_template)
+        self._slurm_cb.toggled.connect(self._slurm_template_edit.setEnabled)
+        self._slurm_cb.toggled.connect(btn_tmpl.setEnabled)
+        slurm_layout.addWidget(self._slurm_cb)
+        slurm_layout.addWidget(self._slurm_template_edit, stretch=1)
+        slurm_layout.addWidget(btn_tmpl)
+        layout.addWidget(slurm_box)
+
         # ── Run-config form ───────────────────────────────────────────────────
         form_scroll = QScrollArea()
         form_scroll.setWidgetResizable(True)
@@ -769,15 +791,27 @@ class RunConfigWidget(QWidget):
                     result[key] = int(val) if wtype == "int" and val.lstrip("-").isdigit() else val
         return result
 
+    def slurm_config(self) -> dict | None:
+        """Return {'template': path} if SLURM generation is enabled, else None."""
+        if not self._slurm_cb.isChecked():
+            return None
+        tmpl = self._slurm_template_edit.text().strip()
+        return {"template": tmpl} if tmpl else None
+
     def to_dict(self) -> dict:
         return {"algorithm": self.algorithm(),
                 "output_dir": self.output_dir(),
-                "fields": self.get_fields()}
+                "fields": self.get_fields(),
+                "slurm": {"enabled": self._slurm_cb.isChecked(),
+                           "template": self._slurm_template_edit.text().strip()}}
 
     def from_dict(self, d: dict):
         algo = d.get("algorithm", "suite2p")
         (self._rb_s2p if algo == "suite2p" else self._rb_s3d).setChecked(True)
         self.output_dir_edit.setText(d.get("output_dir", ""))
+        slurm = d.get("slurm", {})
+        self._slurm_cb.setChecked(bool(slurm.get("enabled", False)))
+        self._slurm_template_edit.setText(slurm.get("template", ""))
         fields = d.get("fields", {})
         for key, _, _, wtype, _, _ in DATA_FIELDS:
             if key not in fields:
@@ -820,6 +854,14 @@ class RunConfigWidget(QWidget):
                 w.setText(str(val))
 
     # ── internals ─────────────────────────────────────────────────────────────
+
+    def _browse_slurm_template(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Jinja2 template", "",
+            "Shell templates (*.sh.in *.sh *.j2 *.jinja2);;All files (*)"
+        )
+        if path:
+            self._slurm_template_edit.setText(path)
 
     def _import_data_json(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open data.json",
@@ -1091,6 +1133,29 @@ class MainWindow(QMainWindow):
             out_path.mkdir(parents=True, exist_ok=True)
             job_id = fields.get("job_id", "run")
 
+            # Load Jinja2 template once (if requested)
+            slurm_cfg = self.run_config.slurm_config()
+            jinja_template = None
+            if slurm_cfg:
+                try:
+                    from jinja2 import Environment, FileSystemLoader, StrictUndefined
+                    tmpl_path = Path(slurm_cfg["template"])
+                    env = Environment(
+                        loader=FileSystemLoader(str(tmpl_path.parent)),
+                        undefined=StrictUndefined,
+                        keep_trailing_newline=True,
+                    )
+                    jinja_template = env.get_template(tmpl_path.name)
+                except ImportError:
+                    QMessageBox.critical(self, "Missing dependency",
+                                         "jinja2 is required for SLURM script generation.\n"
+                                         "Install it with:  pip install jinja2")
+                    return
+                except Exception as exc:
+                    QMessageBox.critical(self, "Template error",
+                                         f"Could not load template:\n{exc}")
+                    return
+
             combinations = self._expand_sweeps(sweep_list)
             if not combinations:
                 combinations = [{}]
@@ -1153,14 +1218,37 @@ class MainWindow(QMainWindow):
 
                 generated_pairs.append((params_fname, data_fname))
 
+            # One SLURM script covers all configurations (array or single).
+            sh_fname = None
+            if jinja_template is not None:
+                is_array = len(combinations) > 1
+                sh_fname = f"{job_id}.sh"
+                # For the non-array case supply the exact data file path.
+                single_data_file = str((out_path / f"{job_id}_data.json").resolve())
+                rendered = jinja_template.render(
+                    is_array=is_array,
+                    n_jobs=len(combinations),
+                    index_digits=digits,
+                    out_dir=str(out_path.resolve()),
+                    job_id=job_id,
+                    data_file=single_data_file,
+                    working_dir=fields.get("working_dir", ""),
+                )
+                with open(out_path / sh_fname, "w") as f:
+                    f.write(rendered)
+
             # Summary
-            lines = [f"Generated {len(generated_pairs)} file pair(s) in:\n{out_dir}\n"]
+            lines = [f"Generated {len(generated_pairs)} configuration(s) in:\n{out_dir}\n"]
             for pf, df in generated_pairs[:10]:
                 lines.append(f"  {df}  +  {pf}")
             if len(generated_pairs) > 10:
                 lines.append(f"  … and {len(generated_pairs) - 10} more")
+            if sh_fname:
+                array_note = f" (job array 1–{len(combinations)})" if len(combinations) > 1 else ""
+                lines.append(f"\nSLURM script{array_note}:  {sh_fname}")
             QMessageBox.information(self, "Generation complete", "\n".join(lines))
-            self.statusBar().showMessage(f"Generated {len(generated_pairs)} config pair(s) → {out_dir}")
+            what = "config pair(s)" + (f" + {sh_fname}" if sh_fname else "")
+            self.statusBar().showMessage(f"Generated {len(generated_pairs)} {what} → {out_dir}")
 
         except Exception as exc:
             QMessageBox.critical(self, "Generation failed", str(exc))

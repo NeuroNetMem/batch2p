@@ -1,0 +1,16 @@
+#!/bin/bash
+{%- if is_array %}
+#SBATCH --array=1-{{ n_jobs }}
+{%- endif %}
+#SBATCH --partition=neurophys -w cn151 --gres=gpu:1 --mem-per-cpu=64G
+
+eval "$(mamba shell hook --shell bash)"
+mamba activate
+mamba activate ofl_2p_analysis
+
+{% if is_array %}
+DATA_FILE={{ out_dir }}/{{ job_id }}_$(printf '%0{{ index_digits }}d' ${SLURM_ARRAY_TASK_ID})_data.json
+{% else %}
+DATA_FILE={{ data_file }}
+{% endif %}
+batch2p{% if working_dir %} --working-dir {{ working_dir }}{% endif %} "${DATA_FILE}"
