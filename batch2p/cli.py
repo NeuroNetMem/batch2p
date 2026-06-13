@@ -99,7 +99,7 @@ def main():
                              "results are copied back to their original destinations on completion.")
     parser.add_argument("--debug", action="store_true",
                         help="Debug mode: skip cleanup of temp/working directories on error.")
-    parser.add_argument("--sync_only", action="store_true",
+    parser.add_argument("--sync-only", action="store_true",
                         help="Skip source extraction; assume results already exist and only run synchronization.")
     args = parser.parse_args()
     sync_only = args.sync_only
