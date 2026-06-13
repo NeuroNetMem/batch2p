@@ -238,13 +238,14 @@ def synchronize(tif_file: str, b64_file: str, output_dir_str: str, pin_sheet_fil
         tsync_barcode = tsync_data['Barcode (Scanner)'].astype(int)
         tsync_barcode_rising_edge = np.nonzero(np.diff(tsync_barcode) > 0)[0] + 1
         tsync_barcode_ts = nap.Ts(tsync_time[tsync_barcode_rising_edge], time_units='us')
-        aux_barcode_ts = nap.Ts(aux_barcode_ts.t + (tsync_barcode_ts.t[0] - aux_barcode_ts.t[0]), time_units='s')
+        shift_offset = (tsync_barcode_ts.t[0] - aux_barcode_ts.t[0])
+        aux_barcode_ts = nap.Ts(aux_barcode_ts.t + shift_offset, time_units='s')
 
         barcode_group = nap.TsGroup({0: aux_barcode_ts, 1: tsync_barcode_ts})
         crosscorrs = nap.compute_crosscorrelogram(
-            group=barcode_group, time_units='ms', windowsize=2000000, binsize=1
+            group=barcode_group, time_units='ms', windowsize=200000, binsize=1
         )
-        shift = crosscorrs.idxmax().iloc[0] + (tsync_barcode_ts.t[0] - aux_barcode_ts.t[0])
+        shift = crosscorrs.idxmax().iloc[0] + shift_offset
         stats['barcode_shift'] = float(shift)
 
         matches, _, _ = closest_match_indices_sorted(
