@@ -146,7 +146,7 @@ def fill_gaps_in_tframes(t_frames: np.ndarray) -> np.ndarray:
 
     return t_frames_filled
 
-def synchronize(tif_file: str, b64_file: str, output_dir_str: str, pin_sheet_file: str, fill_gaps: bool=False) -> Dict[str, Union[str, nap.Tsd, np.ndarray]]:
+def synchronize(tif_file: str, b64_file: str, output_dir_str: str, pin_sheet_file: str, fill_gaps: bool=False, ignore_barcode: bool=False) -> Dict[str, Union[str, nap.Tsd, np.ndarray]]:
     """Synchronize a tif imaging file with a b64 behavioral telemetry file.
 
     Parameters
@@ -231,19 +231,20 @@ def synchronize(tif_file: str, b64_file: str, output_dir_str: str, pin_sheet_fil
     aux_high = np.nonzero(aux_data['value'])[0]
     aux_barcode_ts = nap.Ts(aux_data['value'][aux_high], time_units='s')
 
-    has_barcode = 'Barcode (Scanner)' in tsync_data and len(aux_barcode_ts) > 0
+    has_barcode = 'Barcode (Scanner)' in tsync_data and len(aux_barcode_ts) > 0 and not ignore_barcode
     stats['has_barcode'] = has_barcode
 
     if has_barcode:
         tsync_barcode = tsync_data['Barcode (Scanner)'].astype(int)
         tsync_barcode_rising_edge = np.nonzero(np.diff(tsync_barcode) > 0)[0] + 1
         tsync_barcode_ts = nap.Ts(tsync_time[tsync_barcode_rising_edge], time_units='us')
+        aux_barcode_ts = nap.Ts(aux_barcode_ts.t + (tsync_barcode_ts.t[0] - aux_barcode_ts.t[0]), time_units='s')
 
         barcode_group = nap.TsGroup({0: aux_barcode_ts, 1: tsync_barcode_ts})
         crosscorrs = nap.compute_crosscorrelogram(
             group=barcode_group, time_units='ms', windowsize=2000000, binsize=1
         )
-        shift = crosscorrs.idxmax().iloc[0]
+        shift = crosscorrs.idxmax().iloc[0] + (tsync_barcode_ts.t[0] - aux_barcode_ts.t[0])
         stats['barcode_shift'] = float(shift)
 
         matches, _, _ = closest_match_indices_sorted(

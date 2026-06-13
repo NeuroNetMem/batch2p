@@ -117,6 +117,7 @@ def main():
     original_results_path = original_results_root_dir / job_id
 
     fill_tsync_gaps = bool(data.get("fill_tsync_gaps", False))
+    ignore_barcode = bool(data.get("ignore_barcode", False))
     block_size = int(data.get("block_size", 3))
     working_dir_base = args.working_dir or (Path(data["working_dir"]) if "working_dir" in data else None)
 
@@ -242,7 +243,7 @@ def main():
             for tif, b64 in zip(tifs_for_sync, b64_files):
                 print(f"  Synchronizing {tif.name} + {b64.name}")
                 stats = synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file),
-                                    fill_gaps=fill_tsync_gaps)
+                                    fill_gaps=fill_tsync_gaps, ignore_barcode=ignore_barcode)
                 sync_results.append(stats)
             print("Behavioral synchronization done.")
 

@@ -154,6 +154,7 @@ DATA_FIELDS = [
     ("working_dir",      "Working Dir",         "",    "path", "Isolate all work in a temp subdirectory here and copy results back on completion (optional).", "both"),
     ("block_size",       "Block Size (planes/vol)", "3","int", "Planes per imaging volume; used for frame-index normalisation during behavioural sync.", "both"),
     ("fill_tsync_gaps",  "Fill TSync Gaps",     False, "bool", "Interpolate timestamp gaps in the behavioural log instead of truncating.", "both"),
+    ("ignore_barcode",   "Ignore Barcode",      False, "bool", "Skip barcode-based alignment and fall back to frame-clock onset matching.", "both"),
     ("pinsheet_file",    "Pinsheet File",       "",    "file", "Path to the TotalSync pin-mapping JSON (required when behavioural data is provided).", "both"),
     ("tiff_trim_size",   "TIFF Trim Size",      "9999","int",  "Split each input TIFF into chunks of this many frames before processing (Suite3D only; set 0 to disable).", "suite3d"),
     ("add_offset",       "Add Offset",          False, "bool", "Pass add_offset=True to split_3d_tiff_into_chunks (Suite3D only).", "suite3d"),
