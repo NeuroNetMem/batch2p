@@ -17,7 +17,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-os.chdir(os.path.dirname(os.path.abspath("")))
+# os.chdir(os.path.dirname(os.path.abspath("")))
 
 from totalsync_2p.sync import synchronize
 from batch2p.extractors import get_extractor
@@ -97,7 +97,12 @@ def main():
     parser.add_argument("--working-dir", type=Path, default=None,
                         help="Local scratch directory. Input files are copied here; "
                              "results are copied back to their original destinations on completion.")
+    parser.add_argument("--debug", action="store_true",
+                        help="Debug mode: skip cleanup of temp/working directories on error.")
+    parser.add_argument("--sync_only", action="store_true",
+                        help="Skip source extraction; assume results already exist and only run synchronization.")
     args = parser.parse_args()
+    sync_only = args.sync_only
 
     with open(args.data_json) as f:
         data = json.load(f)
@@ -161,53 +166,73 @@ def main():
     sys.stderr = TeeStream(original_stderr, log_file)
 
     tmp_dir = None
+    _exception_raised = False
     try:
-        if working_dir is not None:
-            print(f"\nSession temp directory: {working_dir}")
-            print("Copying input files to working directory...")
-            tifs = copy_files_to_working_dir(tifs, working_dir / "input_tifs")
-            if has_behavior:
-                b64_files = copy_files_to_working_dir(b64_files, working_dir / "input_b64s")
-            print("Done copying.")
+        if sync_only:
+            if not original_results_path.exists():
+                raise FileNotFoundError(
+                    f"--sync_only: no existing results found at {original_results_path}"
+                )
+            if working_dir is not None:
+                print(f"\nSession temp directory: {working_dir}")
+                print(f"Copying existing results to working directory: {results_path} ...")
+                for item in original_results_path.iterdir():
+                    if item.suffix == ".log":
+                        continue
+                    dest = results_path / item.name
+                    if item.is_dir():
+                        shutil.copytree(str(item), str(dest))
+                    else:
+                        shutil.copy2(str(item), str(dest))
+                print("Done copying.")
+        else:
+            if working_dir is not None:
+                print(f"\nSession temp directory: {working_dir}")
+                print("Copying input files to working directory...")
+                tifs = copy_files_to_working_dir(tifs, working_dir / "input_tifs")
+                if has_behavior:
+                    b64_files = copy_files_to_working_dir(b64_files, working_dir / "input_b64s")
+                print("Done copying.")
 
         # Save pre-split tif paths for behavioral sync (b64 files are per-session, not per-chunk)
         tifs_for_sync = list(tifs)
 
-        chunk_size = int(data.get("tiff_trim_size", 0))
-        if chunk_size:
+        if not sync_only:
+            chunk_size = int(data.get("tiff_trim_size", 0))
+            if chunk_size:
+                if working_dir is not None:
+                    tmp_dir = working_dir / "split_tifs"
+                    tmp_dir.mkdir(parents=True, exist_ok=True)
+                else:
+                    tmp_parent = Path(data["temp_dir"]) if "temp_dir" in data else None
+                    if tmp_parent is not None:
+                        tmp_parent.mkdir(parents=True, exist_ok=True)
+                    tmp_dir = Path(tempfile.mkdtemp(prefix="batch2p_", dir=tmp_parent))
+                print(f"\nSplitting TIFFs into chunks of {chunk_size} frames -> {tmp_dir}")
+                add_offset = bool(data.get("add_offset", False))
+                tifs = split_tifs(tifs, chunk_size, tmp_dir, block_size=block_size, add_offset=add_offset)
+                print("Split files:")
+                for t in tifs:
+                    print(f"  {t}")
+
+            # When a working directory is used, let the extractor know so it can place
+            # any algorithm-level scratch files (e.g. suite2p fast_disk) there.
             if working_dir is not None:
-                tmp_dir = working_dir / "split_tifs"
-                tmp_dir.mkdir(parents=True, exist_ok=True)
-            else:
-                tmp_parent = Path(data["temp_dir"]) if "temp_dir" in data else None
-                if tmp_parent is not None:
-                    tmp_parent.mkdir(parents=True, exist_ok=True)
-                tmp_dir = Path(tempfile.mkdtemp(prefix="batch2p_", dir=tmp_parent))
-            print(f"\nSplitting TIFFs into chunks of {chunk_size} frames -> {tmp_dir}")
-            add_offset = bool(data.get("add_offset", False))
-            tifs = split_tifs(tifs, chunk_size, tmp_dir, block_size=block_size, add_offset=add_offset)
-            print("Split files:")
-            for t in tifs:
-                print(f"  {t}")
+                data["temp_dir"] = str(working_dir)
 
-        # When a working directory is used, let the extractor know so it can place
-        # any algorithm-level scratch files (e.g. suite2p fast_disk) there.
-        if working_dir is not None:
-            data["temp_dir"] = str(working_dir)
+            # Save reproducibility files
+            extractor.save_reproducibility_info(results_path)
 
-        # Save reproducibility files
-        extractor.save_reproducibility_info(results_path)
+            saved_data = dict(data)
+            saved_data["data"] = [str(t) for t in original_tifs]
+            saved_data.pop("root_path", None)
+            saved_data["results_root_dir"] = str(original_results_root_dir)
+            saved_data["job_root_dir"] = str(original_job_root_dir)
+            with open(results_path / "data_used.json", "w") as f:
+                json.dump(saved_data, f, indent=2)
 
-        saved_data = dict(data)
-        saved_data["data"] = [str(t) for t in original_tifs]
-        saved_data.pop("root_path", None)
-        saved_data["results_root_dir"] = str(original_results_root_dir)
-        saved_data["job_root_dir"] = str(original_job_root_dir)
-        with open(results_path / "data_used.json", "w") as f:
-            json.dump(saved_data, f, indent=2)
-
-        # Run source extraction
-        extractor.run(tifs, job_root_dir, job_id, results_path)
+            # Run source extraction
+            extractor.run(tifs, job_root_dir, job_id, results_path)
 
         if has_behavior:
             print("\nRunning behavioral synchronization...")
@@ -231,46 +256,70 @@ def main():
             )
             print("Synced outputs done.")
 
+    except Exception:
+        _exception_raised = True
+        raise
     finally:
         sys.stdout = original_stdout
         sys.stderr = original_stderr
         log_file.flush()
         log_file.close()
 
+        skip_cleanup = args.debug and _exception_raised
+
         if tmp_dir is not None and tmp_dir.exists() and working_dir is None:
-            shutil.rmtree(tmp_dir)
-            print(f"\nCleaned up temporary directory: {tmp_dir}")
+            if skip_cleanup:
+                print(f"\n[debug] Keeping temporary directory on error: {tmp_dir}")
+            else:
+                shutil.rmtree(tmp_dir)
+                print(f"\nCleaned up temporary directory: {tmp_dir}")
 
         if working_dir is not None and working_dir.exists():
-            print(f"\nCopying results back to {original_results_path} ...")
-            if original_results_path.exists():
-                shutil.rmtree(original_results_path)
-            original_results_root_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(str(results_path), str(original_results_path))
-
-            job_subdir = extractor.get_job_subdir(job_id)
-            working_job_path = job_root_dir / job_subdir
-            original_job_path = original_job_root_dir / job_subdir
-            if working_job_path.exists():
-                print(f"Copying job directory back to {original_job_path} ...")
-                if original_job_path.exists():
-                    shutil.rmtree(original_job_path)
-                original_job_root_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(str(working_job_path), str(original_job_path))
-
-            if has_behavior:
-                working_behavior_sync = results_root_dir / "behavior_sync"
-                original_behavior_sync = original_results_root_dir / "behavior_sync"
-                if working_behavior_sync.exists():
-                    print(f"Copying behavior_sync back to {original_behavior_sync} ...")
-                    if original_behavior_sync.exists():
-                        shutil.rmtree(original_behavior_sync)
+            if skip_cleanup:
+                print(f"\n[debug] Keeping session temp directory on error: {working_dir}")
+            else:
+                try:
+                    print(f"\nCopying results back to {original_results_path} ...")
+                    if original_results_path.exists():
+                        shutil.rmtree(original_results_path)
                     original_results_root_dir.mkdir(parents=True, exist_ok=True)
-                    shutil.copytree(str(working_behavior_sync), str(original_behavior_sync))
+                    shutil.copytree(str(results_path), str(original_results_path))
 
-            print(f"Cleaning up session temp directory: {working_dir} ...")
-            shutil.rmtree(working_dir)
-            print("Done.")
+                    job_subdir = extractor.get_job_subdir(job_id)
+                    working_job_path = job_root_dir / job_subdir
+                    original_job_path = original_job_root_dir / job_subdir
+                    if working_job_path.exists():
+                        print(f"Copying job directory back to {original_job_path} ...")
+                        if original_job_path.exists():
+                            shutil.rmtree(original_job_path)
+                        if original_job_root_dir.exists() and not original_job_root_dir.is_dir():
+                            raise RuntimeError(
+                                f"Cannot create job root directory: {original_job_root_dir} "
+                                f"already exists as a non-directory file. "
+                                f"Remove or rename it and retry."
+                            )
+                        original_job_root_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.copytree(str(working_job_path), str(original_job_path))
+
+                    if has_behavior:
+                        working_behavior_sync = results_root_dir / "behavior_sync"
+                        original_behavior_sync = original_results_root_dir / "behavior_sync"
+                        if working_behavior_sync.exists():
+                            print(f"Copying behavior_sync back to {original_behavior_sync} ...")
+                            if original_behavior_sync.exists():
+                                shutil.rmtree(original_behavior_sync)
+                            original_results_root_dir.mkdir(parents=True, exist_ok=True)
+                            shutil.copytree(str(working_behavior_sync), str(original_behavior_sync))
+
+                    print(f"Cleaning up session temp directory: {working_dir} ...")
+                    shutil.rmtree(working_dir)
+                    print("Done.")
+                except Exception as copy_err:
+                    if _exception_raised:
+                        print(f"\nWARNING: copy-back failed ({type(copy_err).__name__}: {copy_err}); "
+                              f"working directory preserved at: {working_dir}", file=sys.stderr)
+                    else:
+                        raise
 
 
 if __name__ == "__main__":

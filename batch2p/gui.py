@@ -144,7 +144,7 @@ S3D_PARAMS = [
 
 # ─── Run-config (data.json) field definitions ────────────────────────────────
 # (key, label, default, widget_type, tooltip, shown_for)
-# widget_type: "text" | "path" | "int" | "bool"
+# widget_type: "text" | "path" | "file" | "int" | "bool"
 # shown_for:   "both" | "suite2p" | "suite3d"
 DATA_FIELDS = [
     ("job_id",           "Job ID",              "",    "text", "Unique identifier for this run (used as output subdirectory name).", "both"),
@@ -154,7 +154,7 @@ DATA_FIELDS = [
     ("working_dir",      "Working Dir",         "",    "path", "Isolate all work in a temp subdirectory here and copy results back on completion (optional).", "both"),
     ("block_size",       "Block Size (planes/vol)", "3","int", "Planes per imaging volume; used for frame-index normalisation during behavioural sync.", "both"),
     ("fill_tsync_gaps",  "Fill TSync Gaps",     False, "bool", "Interpolate timestamp gaps in the behavioural log instead of truncating.", "both"),
-    ("pinsheet_file",    "Pinsheet File",       "",    "path", "Path to the TotalSync pin-mapping JSON (required when behavioural data is provided).", "both"),
+    ("pinsheet_file",    "Pinsheet File",       "",    "file", "Path to the TotalSync pin-mapping JSON (required when behavioural data is provided).", "both"),
     ("tiff_trim_size",   "TIFF Trim Size",      "9999","int",  "Split each input TIFF into chunks of this many frames before processing (Suite3D only; set 0 to disable).", "suite3d"),
     ("add_offset",       "Add Offset",          False, "bool", "Pass add_offset=True to split_3d_tiff_into_chunks (Suite3D only).", "suite3d"),
 ]
@@ -751,9 +751,11 @@ class RunConfigWidget(QWidget):
                 w.setFixedWidth(120)
             elif wtype == "path":
                 w = self._make_path_row(tooltip)
+            elif wtype == "file":
+                w = self._make_file_row(tooltip)
             else:  # text
                 w = QLineEdit(str(default) if default else "")
-            if wtype != "path":
+            if wtype not in ("path", "file"):
                 w.setToolTip(tooltip)
             row_label = QLabel(label + ":")
             row_label.setToolTip(tooltip)
@@ -780,7 +782,7 @@ class RunConfigWidget(QWidget):
             w = self._widgets[key]
             if wtype == "bool":
                 result[key] = w.isChecked()
-            elif wtype == "path":
+            elif wtype in ("path", "file"):
                 edit = w.findChild(QLineEdit)
                 val = edit.text().strip() if edit else ""
                 if val:
@@ -820,7 +822,7 @@ class RunConfigWidget(QWidget):
             val = fields[key]
             if wtype == "bool":
                 w.setChecked(bool(val))
-            elif wtype == "path":
+            elif wtype in ("path", "file"):
                 edit = w.findChild(QLineEdit)
                 if edit:
                     edit.setText(str(val))
@@ -846,7 +848,7 @@ class RunConfigWidget(QWidget):
             val = data[key]
             if wtype == "bool":
                 w.setChecked(bool(val))
-            elif wtype == "path":
+            elif wtype in ("path", "file"):
                 edit = w.findChild(QLineEdit)
                 if edit:
                     edit.setText(str(val))
@@ -889,6 +891,26 @@ class RunConfigWidget(QWidget):
         row.addWidget(edit)
         row.addWidget(btn)
         return container
+
+    def _make_file_row(self, tooltip: str) -> QWidget:
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        edit = QLineEdit()
+        edit.setToolTip(tooltip)
+        btn = QPushButton("…")
+        btn.setFixedWidth(28)
+        btn.clicked.connect(lambda: self._browse_file(edit))
+        row.addWidget(edit)
+        row.addWidget(btn)
+        return container
+
+    def _browse_file(self, edit: QLineEdit):
+        path, _ = QFileDialog.getOpenFileName(self, "Select file",
+                                              edit.text() or "",
+                                              "JSON files (*.json);;All files (*)")
+        if path:
+            edit.setText(path)
 
     def _browse_dir(self, target: QLineEdit):
         # target may be a QLineEdit directly or a container with one inside
@@ -1024,6 +1046,8 @@ class MainWindow(QMainWindow):
                                                "", "batch2p project (*.b2p.json)")
         if not path:
             return
+        if not path.endswith(".b2p.json"):
+            path += ".b2p.json"
         project = {
             "input_files": self.input_widget.to_dict(),
             "run_config":  self.run_config.to_dict(),
