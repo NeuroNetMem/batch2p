@@ -6,7 +6,7 @@
 
 eval "$(mamba shell hook --shell bash)"
 mamba activate
-mamba activate ofl_2p_analysis
+mamba activate ofl-2p-analysis
 
 {% if is_array %}
 DATA_FILE={{ out_dir }}/{{ job_id }}_$(printf '%0{{ index_digits }}d' ${SLURM_ARRAY_TASK_ID})_data.json
