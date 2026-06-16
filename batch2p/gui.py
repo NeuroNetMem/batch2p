@@ -22,8 +22,8 @@ from PyQt5.QtWidgets import (
     QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QRadioButton,
     QScrollArea, QSizePolicy, QSplitter, QStatusBar, QTabWidget,
-    QTableWidget, QTableWidgetItem, QTextBrowser, QToolBar, QVBoxLayout,
-    QWidget,
+    QPlainTextEdit, QTableWidget, QTableWidgetItem, QTextBrowser, QToolBar,
+    QVBoxLayout, QWidget,
 )
 
 # ─── Parameter definitions ────────────────────────────────────────────────────
@@ -158,6 +158,7 @@ DATA_FIELDS = [
     ("pinsheet_file",    "Pinsheet File",       "",    "file", "Path to the TotalSync pin-mapping JSON (required when behavioural data is provided).", "both"),
     ("tiff_trim_size",   "TIFF Trim Size",      "9999","int",  "Split each input TIFF into chunks of this many frames before processing (Suite3D only; set 0 to disable).", "suite3d"),
     ("add_offset",       "Add Offset",          False, "bool", "Pass add_offset=True to split_3d_tiff_into_chunks (Suite3D only).", "suite3d"),
+    ("comments",         "Comments",            "",    "textarea", "Free-form notes about this run configuration. Ignored by batch2p and extractors.", "both"),
 ]
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
@@ -463,6 +464,16 @@ class ParamTableWidget(QWidget):
         splitter.setSizes([400, 100])
         layout.addWidget(splitter)
 
+        # ── Comments ──────────────────────────────────────────────────────────
+        comments_row = QHBoxLayout()
+        comments_row.addWidget(QLabel("Comments:"))
+        self.comments_edit = QLineEdit()
+        self.comments_edit.setPlaceholderText(
+            "Optional notes (ignored by batch2p and extractors)"
+        )
+        comments_row.addWidget(self.comments_edit)
+        layout.addLayout(comments_row)
+
         self.load_defaults()
 
     # ── public API ────────────────────────────────────────────────────────────
@@ -609,9 +620,13 @@ class ParamTableWidget(QWidget):
             return
         with open(path) as f:
             data = json.load(f)
+        if "comments" in data:
+            self.comments_edit.setText(str(data["comments"]))
         # Flatten two-level dict → {(section, name): value}
         flat: dict[tuple, object] = {}
         for k, v in data.items():
+            if k == "comments":
+                continue
             if isinstance(v, dict):
                 for sub_k, sub_v in v.items():
                     flat[(k, sub_k)] = sub_v
@@ -754,6 +769,10 @@ class RunConfigWidget(QWidget):
                 w = self._make_path_row(tooltip)
             elif wtype == "file":
                 w = self._make_file_row(tooltip)
+            elif wtype == "textarea":
+                w = QPlainTextEdit()
+                w.setPlaceholderText("Optional notes (ignored by batch2p and extractors)")
+                w.setFixedHeight(72)
             else:  # text
                 w = QLineEdit(str(default) if default else "")
             if wtype not in ("path", "file"):
@@ -786,6 +805,10 @@ class RunConfigWidget(QWidget):
             elif wtype in ("path", "file"):
                 edit = w.findChild(QLineEdit)
                 val = edit.text().strip() if edit else ""
+                if val:
+                    result[key] = val
+            elif wtype == "textarea":
+                val = w.toPlainText().strip()
                 if val:
                     result[key] = val
             else:
@@ -827,6 +850,8 @@ class RunConfigWidget(QWidget):
                 edit = w.findChild(QLineEdit)
                 if edit:
                     edit.setText(str(val))
+            elif wtype == "textarea":
+                w.setPlainText(str(val))
             else:
                 w.setText(str(val))
 
@@ -853,6 +878,8 @@ class RunConfigWidget(QWidget):
                 edit = w.findChild(QLineEdit)
                 if edit:
                     edit.setText(str(val))
+            elif wtype == "textarea":
+                w.setPlainText(str(val))
             else:
                 w.setText(str(val))
 
@@ -960,12 +987,16 @@ class MainWindow(QMainWindow):
         file_menu.addAction(act_new)
         file_menu.addAction(act_open)
         file_menu.addAction(act_save)
+        act_exit  = QAction("E&xit", self, shortcut="Ctrl+Q")
         file_menu.addSeparator()
         file_menu.addAction(act_gen)
+        file_menu.addSeparator()
+        file_menu.addAction(act_exit)
         act_new.triggered.connect(self._new_project)
         act_open.triggered.connect(self._open_project)
         act_save.triggered.connect(self._save_project)
         act_gen.triggered.connect(self._generate)
+        act_exit.triggered.connect(self.close)
 
         # ── Toolbar ───────────────────────────────────────────────────────────
         tb = QToolBar("Main toolbar")
@@ -1040,7 +1071,9 @@ class MainWindow(QMainWindow):
             self.input_widget.from_dict({"root_path": "", "tif_files": [], "b64_files": []})
             self.run_config.from_dict({})
             self.param_table_s2p.load_defaults()
+            self.param_table_s2p.comments_edit.clear()
             self.param_table_s3d.load_defaults()
+            self.param_table_s3d.comments_edit.clear()
 
     def _save_project(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save project",
@@ -1088,7 +1121,7 @@ class MainWindow(QMainWindow):
                     "value":   vi.text(),
                     "sweep":   cb.isChecked() if cb else False,
                 })
-        return {"rows": rows}
+        return {"rows": rows, "comments": table.comments_edit.text()}
 
     @staticmethod
     def _table_from_save(table: ParamTableWidget, saved: dict):
@@ -1109,6 +1142,7 @@ class MainWindow(QMainWindow):
                         cb.setChecked(saved_row.get("sweep", False))
         table.table.blockSignals(False)
         table._update_sweep_label()
+        table.comments_edit.setText(saved.get("comments", ""))
 
     # ── Generate ──────────────────────────────────────────────────────────────
 
@@ -1195,6 +1229,9 @@ class MainWindow(QMainWindow):
                         params_dict[name] = val
                     else:
                         params_dict.setdefault(section, {})[name] = val
+                params_comments = param_table.comments_edit.text().strip()
+                if params_comments:
+                    params_dict["comments"] = params_comments
                 params_dict = make_json_serializable(params_dict)
 
                 # File naming
