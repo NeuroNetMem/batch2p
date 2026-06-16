@@ -22,13 +22,16 @@ python scripts/batch2p_run.py data_suite2p.json
 ## Usage
 
 ```
-batch2p <data.json> [--working-dir DIR]
+batch2p <data.json> [--working-dir DIR] [--debug] [--sync-only] [--dry-run]
 ```
 
 | Argument | Description |
 |---|---|
 | `data.json` | Path to the data/run configuration JSON file (required). |
 | `--working-dir DIR` | Local scratch directory for intermediate files (optional). See [Working directory](#working-directory). |
+| `--debug` | Skip cleanup of temp/working directories on error, for troubleshooting. |
+| `--sync-only` | Skip source extraction; assume results already exist and only run behavioral synchronization. |
+| `--dry-run` | Check that all input files exist and all output directories are creatable, then exit without running anything. See [Dry run](#dry-run). |
 
 ## data.json fields
 
@@ -47,6 +50,7 @@ batch2p <data.json> [--working-dir DIR]
 | `behavior_data` | no | List of `.b64` TotalSync telemetry files, one per entry in `data` (same order). When present, behavioral synchronization is run after the imaging pipeline. Requires `pinsheet_file`. |
 | `pinsheet_file` | no (yes if `behavior_data` set) | Path to the TotalSync pin mapping JSON file. Relative paths are resolved against `root_path`. |
 | `fill_tsync_gaps` | no | If `true`, interpolate timestamp gaps in the behavioral log rather than discarding frames after the first gap (default `false`). |
+| `ignore_barcode` | no | If `true`, skip barcode-based alignment and fall back to frame-clock onset matching (default `false`). |
 
 ### Suite3D-specific fields
 
@@ -270,6 +274,24 @@ columns from the Suite2P arrays.
 
 - **With barcode** – a cross-correlogram between the tif aux trigger and the `Barcode (Scanner)` channel is used to find the time shift, then tif frames are matched one-to-one to scanner frame-clock pulses within a 25 ms tolerance.
 - **Without barcode** – the first scanner frame-clock pulse is assumed to correspond to the first tif frame. If timestamp gaps are present in the behavioral log, alignment is restricted to the period before the first gap (or gaps are interpolated if `fill_tsync_gaps` is `true`).
+
+Set `"ignore_barcode": true` in `data.json` to force the without-barcode path even when a `Barcode (Scanner)` channel is present in the telemetry file.
+
+## Dry run
+
+Pass `--dry-run` to validate a configuration without executing anything:
+
+```bash
+batch2p data.json --dry-run
+```
+
+The command checks:
+- All entries in `data` (TIF files or directories) exist.
+- `params_file` and `pinsheet_file` (when present) exist.
+- All `.b64` files listed in `behavior_data` exist.
+- `job_root_dir`, `results_root_dir`, `temp_dir`, and `working_dir` either already exist or can be created.
+
+Exits with code `0` on success, `1` if any check fails. All issues are printed to stderr.
 
 ## Adding a new source extraction algorithm
 

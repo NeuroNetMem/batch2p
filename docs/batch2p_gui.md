@@ -94,7 +94,8 @@ These correspond to the fields of `data.json` documented in
 | Working Dir | both | Isolate all processing in a temp subdirectory here and copy results back on completion. |
 | Block Size (planes/vol) | both | Planes per imaging volume; used for frame-index normalisation during behavioural sync. |
 | Fill TSync Gaps | both | Interpolate gaps in the behavioural log instead of truncating. |
-| Pinsheet File | both | Path to the TotalSync pin-mapping JSON (required when `.b64` files are provided). |
+| Ignore Barcode | both | Skip barcode-based alignment and fall back to frame-clock onset matching. |
+| Pinsheet File | both | Path to the TotalSync pin-mapping JSON (required when `.b64` files are provided). A **…** browse button opens a file picker. |
 | TIFF Trim Size | Suite3D | Split each TIFF into chunks of this many frames before processing. Set `0` to disable. |
 | Add Offset | Suite3D | Pass `add_offset=True` to `split_3d_tiff_into_chunks`. |
 
@@ -179,6 +180,51 @@ corresponding `params_*.json` file.
 
 An error dialog is shown if any sweep expression is syntactically invalid or
 does not evaluate to a list.
+
+---
+
+## Comments field
+
+A free-form **Comments** text box is available in the Algorithm Parameters tab.
+Its value is written into the generated `params_*.json` under the key
+`"comments"` and is ignored by `batch2p` and all extractors. It is saved and
+restored by project save/load.
+
+---
+
+## SLURM script generation
+
+A **SLURM Job Scripts** group box appears in the Run Configuration tab. When
+enabled, the GUI renders a Jinja2 template into a `.sh` SLURM script alongside
+the generated JSON files.
+
+| Control | Description |
+|---------|-------------|
+| **Generate .sh scripts from Jinja2 template** checkbox | Enable/disable SLURM script generation. |
+| Template path field | Path to the Jinja2 template file (`.sh.in`, `.j2`, etc.). |
+| **Browse…** button | Open a file picker for the template. |
+
+### Template variables
+
+The following variables are available inside the template:
+
+| Variable | Description |
+|----------|-------------|
+| `is_array` | `True` if more than one configuration is being generated (sweep mode). |
+| `n_jobs` | Total number of configurations. |
+| `index_digits` | Zero-padding width for the job index (e.g. `2` for `01`, `02`…). |
+| `out_dir` | Absolute path to the output directory. |
+| `job_id` | The Job ID string. |
+| `data_file` | Absolute path to the single `data.json` (non-array case only). |
+| `working_dir` | Value of the Working Dir field (empty string if not set). |
+
+A reference template is provided at `docs/job1.sh.in`. For a sweep it emits a
+SLURM array job (`--array=1-N`); for a single configuration it emits a plain
+job.
+
+Requires `jinja2` (`pip install jinja2`). If the package is missing or the
+template cannot be loaded, an error dialog is shown before any files are
+written.
 
 ---
 
