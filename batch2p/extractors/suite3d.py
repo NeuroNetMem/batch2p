@@ -12,6 +12,8 @@ def _load_params(params_path: Path) -> dict:
         params = json.load(f)
     if "planes" in params:
         params["planes"] = np.array(params["planes"])
+    if "pc_size" in params:
+        params["pc_size"] = np.array(params["pc_size"])
     return params
 
 
