@@ -209,9 +209,10 @@ class FileListWidget(QWidget):
 
     order_changed = pyqtSignal()
 
-    def __init__(self, label: str, file_filter: str, parent=None):
+    def __init__(self, label: str, file_filter: str, root_path_getter=None, parent=None):
         super().__init__(parent)
         self._filter = file_filter
+        self._root_path_getter = root_path_getter  # callable () -> str, or None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -259,16 +260,28 @@ class FileListWidget(QWidget):
     # ── internals ─────────────────────────────────────────────────────────────
 
     def _append(self, path: str):
-        item = QListWidgetItem(Path(path).name)
+        """Append *path* to the list. *path* should already be a relative path."""
+        item = QListWidgetItem(path)
         item.setData(Qt.UserRole, path)
         item.setToolTip(path)
         self.list_widget.addItem(item)
 
+    @staticmethod
+    def _to_relative(path: str, root_str: str) -> str:
+        """Return *path* relative to *root_str* when possible, else return just the filename."""
+        if not root_str:
+            return path
+        try:
+            return str(Path(path).relative_to(root_str))
+        except ValueError:
+            return Path(path).name
+
     def _add_files(self):
         paths, _ = QFileDialog.getOpenFileNames(self, "Select files",
                                                  "", self._filter)
+        root_str = self._root_path_getter() if self._root_path_getter else ""
         for p in paths:
-            self._append(p)
+            self._append(self._to_relative(p, root_str))
         self.order_changed.emit()
 
     def _remove_selected(self):
@@ -316,8 +329,10 @@ class InputFilesWidget(QWidget):
 
         # ── File lists ────────────────────────────────────────────────────────
         lists_splitter = QSplitter(Qt.Horizontal)
-        self.tif_list = FileListWidget("TIFF files", "TIFF files (*.tif *.tiff)")
-        self.b64_list = FileListWidget(".b64 files (optional)", "b64 files (*.b64)")
+        self.tif_list = FileListWidget("TIFF files", "TIFF files (*.tif *.tiff)",
+                                       root_path_getter=self.root_path)
+        self.b64_list = FileListWidget(".b64 files (optional)", "b64 files (*.b64)",
+                                       root_path_getter=self.root_path)
         lists_splitter.addWidget(self.tif_list)
         lists_splitter.addWidget(self.b64_list)
         lists_splitter.setSizes([300, 300])
@@ -1244,20 +1259,17 @@ class MainWindow(QMainWindow):
                 with open(params_path, "w") as f:
                     json.dump(params_dict, f, indent=2)
 
-                # Build data.json
+                # Build data.json — prepend root_path to make entries absolute server paths
                 root_path = file_data.get("root_path", "")
-                tif_paths = file_data.get("tif_files", [])
-                b64_paths = file_data.get("b64_files", [])
-
+                tif_rel = file_data.get("tif_files", [])
+                b64_rel = file_data.get("b64_files", [])
                 if root_path:
                     root = Path(root_path)
-                    tif_entries = [str(Path(p).relative_to(root)) if Path(p).is_relative_to(root)
-                                   else str(p) for p in tif_paths]
-                    b64_entries = [str(Path(p).relative_to(root)) if Path(p).is_relative_to(root)
-                                   else str(p) for p in b64_paths]
+                    tif_entries = [str(root / p) for p in tif_rel]
+                    b64_entries = [str(root / p) for p in b64_rel]
                 else:
-                    tif_entries = tif_paths
-                    b64_entries = b64_paths
+                    tif_entries = tif_rel
+                    b64_entries = b64_rel
 
                 data_dict = {
                     "source_extraction": algo,
@@ -1391,16 +1403,22 @@ class MainWindow(QMainWindow):
         root = data.get("root_path", "")
         tif_entries = data.get("data", [])
         b64_entries = data.get("behavior_data", [])
-        # Resolve entries to absolute paths when root_path is set
-        def resolve(entries, root_dir):
+        # Strip root_path prefix so the file list shows relative paths.
+        def to_rel(entries, root_dir):
             if not root_dir:
                 return entries
             r = Path(root_dir)
-            return [str(r / e) if not Path(e).is_absolute() else e for e in entries]
+            result = []
+            for e in entries:
+                try:
+                    result.append(str(Path(e).relative_to(r)))
+                except ValueError:
+                    result.append(e)
+            return result
         self.input_widget.from_dict({
             "root_path": root,
-            "tif_files": resolve(tif_entries, root),
-            "b64_files": resolve(b64_entries, root),
+            "tif_files": to_rel(tif_entries, root),
+            "b64_files": to_rel(b64_entries, root),
         })
 
     def _on_algo_changed(self, algo: str):
