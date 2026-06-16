@@ -69,6 +69,100 @@ def split_tifs(tifs: list[Path], chunk_size: int, tmp_dir: Path,
     return split
 
 
+def _can_create_dir(p: Path) -> bool:
+    """Return True if p already exists as a directory or could be created."""
+    p = p.resolve()
+    candidate = p
+    while not candidate.exists():
+        parent = candidate.parent
+        if parent == candidate:
+            return False  # reached filesystem root with nothing existing
+        candidate = parent
+    return candidate.is_dir() and os.access(candidate, os.W_OK)
+
+
+def dry_run(args, data: dict) -> int:
+    """Check all inputs exist and all output dirs are creatable. Returns exit code."""
+    errors = []
+    ok_lines = []
+
+    def check_file(p: Path, label: str):
+        if p.exists() and p.is_file():
+            ok_lines.append(f"  [OK]     {label}: {p}")
+        else:
+            errors.append(f"  [MISSING] {label}: {p}")
+
+    def check_dir(p: Path, label: str):
+        if p.exists() and p.is_dir():
+            ok_lines.append(f"  [OK]     {label}: {p}")
+        elif _can_create_dir(p):
+            ok_lines.append(f"  [OK]     {label}: {p}  (will be created)")
+        else:
+            errors.append(f"  [MISSING] {label}: {p}  (cannot create)")
+
+    # ── Input files ───────────────────────────────────────────────────────────
+    print("Checking input files...")
+
+    params_file = Path(data["params_file"])
+    check_file(params_file, "params file")
+
+    root = Path(data["root_path"]) if "root_path" in data else Path(".")
+    for item in data["data"]:
+        p = root / item
+        if p.suffix.lower() in (".tif", ".tiff"):
+            check_file(p, "tif")
+        elif p.is_dir():
+            tifs = sorted(p.glob("*.tif")) + sorted(p.glob("*.tiff"))
+            if tifs:
+                for t in tifs:
+                    ok_lines.append(f"  [OK]     tif: {t}")
+            else:
+                errors.append(f"  [MISSING] tif dir (empty or missing): {p}")
+        else:
+            if p.exists():
+                errors.append(f"  [ERROR]  unexpected file type: {p}")
+            else:
+                errors.append(f"  [MISSING] tif: {p}")
+
+    if "behavior_data" in data:
+        for item in data["behavior_data"]:
+            p = root / item
+            check_file(p, "b64")
+        pinsheet_file = Path(data["pinsheet_file"])
+        if not pinsheet_file.is_absolute():
+            pinsheet_file = root / pinsheet_file
+        check_file(pinsheet_file, "pinsheet file")
+
+    # ── Output directories ────────────────────────────────────────────────────
+    print("Checking output directories...")
+
+    job_id = data.get("job_id", "")
+    check_dir(Path(data["job_root_dir"]), "job root dir")
+    results_root = Path(data.get("results_root_dir", str(Path(data["job_root_dir"]) / "results")))
+    check_dir(results_root, "results root dir")
+    check_dir(results_root / job_id, "results dir")
+
+    if "temp_dir" in data:
+        check_dir(Path(data["temp_dir"]), "temp/scratch dir")
+
+    working_dir_base = args.working_dir or (Path(data["working_dir"]) if "working_dir" in data else None)
+    if working_dir_base is not None:
+        check_dir(Path(working_dir_base), "working dir")
+
+    # ── Report ────────────────────────────────────────────────────────────────
+    for line in ok_lines:
+        print(line)
+    if errors:
+        print("\nERRORS:")
+        for line in errors:
+            print(line, file=sys.stderr)
+        print(f"\nDry run FAILED: {len(errors)} issue(s) found.", file=sys.stderr)
+        return 1
+
+    print(f"\nDry run OK: all files present and output directories are accessible.")
+    return 0
+
+
 def collect_b64s(data: dict) -> list[Path]:
     root = Path(data["root_path"]) if "root_path" in data else Path(".")
     b64s = []
@@ -101,11 +195,17 @@ def main():
                         help="Debug mode: skip cleanup of temp/working directories on error.")
     parser.add_argument("--sync-only", action="store_true",
                         help="Skip source extraction; assume results already exist and only run synchronization.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Check that all input files exist and all output directories are "
+                             "creatable, then exit without running anything.")
     args = parser.parse_args()
     sync_only = args.sync_only
 
     with open(args.data_json) as f:
         data = json.load(f)
+
+    if args.dry_run:
+        sys.exit(dry_run(args, data))
 
     algorithm = data.get("source_extraction", "suite3d")
     extractor = get_extractor(algorithm, data)
