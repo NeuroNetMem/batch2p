@@ -70,8 +70,22 @@ def create_synced_outputs(
         local_indices = frames_time_idx.d.astype(int)
 
         if block_size > 1:
-            local_indices = np.unique((local_indices / block_size).astype(int))
-            t_frames = frames_time_idx.t[local_indices * block_size]
+            # Assign each synced frame to its volume (integer division).
+            # Only keep volumes where all block_size frames are present.
+            frame_to_volume = local_indices // block_size
+            volumes, counts = np.unique(frame_to_volume, return_counts=True)
+            complete_volumes = volumes[counts == block_size]
+            if len(complete_volumes) < len(volumes):
+                n_dropped = len(volumes) - len(complete_volumes)
+                print(f"    Warning: dropping {n_dropped} incomplete volume(s) "
+                      f"(fewer than {block_size} synced frames) for {tif.name}")
+            local_indices = complete_volumes  # now volume indices
+            # Find the position in the Tsd of each volume's first frame number.
+            # frames_time_idx.d contains frame numbers (with possible gaps), so
+            # we cannot use frame number directly as a positional index into .t.
+            first_frame_numbers = local_indices * block_size
+            pos = np.searchsorted(frames_time_idx.d.astype(int), first_frame_numbers)
+            t_frames = frames_time_idx.t[pos]
         else:
             t_frames = frames_time_idx.t
         global_indices = local_indices
