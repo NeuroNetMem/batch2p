@@ -10,6 +10,7 @@ import ast
 import copy
 import itertools
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -200,6 +201,25 @@ def make_json_serializable(v):
     if isinstance(v, (list, tuple)):
         return [make_json_serializable(x) for x in v]
     return v
+
+
+def _apply_template_vars(obj, variables: dict):
+    """Recursively replace {{ var }} placeholders in string values.
+
+    Only substitutes a placeholder when the corresponding variable is non-empty;
+    otherwise the placeholder is left verbatim in the output.
+    """
+    if isinstance(obj, str):
+        def _replace(m):
+            name = m.group(1).strip()
+            val = variables.get(name)
+            return val if val else m.group(0)
+        return re.sub(r'\{\{\s*(\w+)\s*\}\}', _replace, obj)
+    if isinstance(obj, dict):
+        return {k: _apply_template_vars(v, variables) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_apply_template_vars(x, variables) for x in obj]
+    return obj
 
 
 # ─── FileListWidget ───────────────────────────────────────────────────────────
@@ -1286,6 +1306,10 @@ class MainWindow(QMainWindow):
                 if suffix:
                     data_dict["job_id"] = f"{job_id}{suffix}"
                 data_dict = make_json_serializable(data_dict)
+                data_dict = _apply_template_vars(data_dict, {
+                    "job_id":   data_dict.get("job_id", ""),
+                    "root_dir": root_path,
+                })
 
                 with open(data_path_f, "w") as f:
                     json.dump(data_dict, f, indent=2)

@@ -53,6 +53,8 @@ def _load_settings(params_path: Path) -> tuple[dict, dict]:
     with open(params_path) as f:
         user_params = json.load(f)
 
+    user_params.pop("comments", None)
+
     if "torch_device" not in user_params:
         user_params["torch_device"] = _detect_torch_device()
 

@@ -2,6 +2,7 @@ setup.py
 batch2p/__init__.py
 batch2p/cli.py
 batch2p/gui.py
+batch2p/multi.py
 batch2p/extractors/__init__.py
 batch2p/extractors/base.py
 batch2p/extractors/suite2p.py

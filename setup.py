@@ -22,6 +22,7 @@ setup(
             'totalsync-decode=totalsync_utils.cli:main',
             'batch2p=batch2p.cli:main',
             'batch2p-gui=batch2p.gui:main',
+            'batch2p-multi=batch2p.multi:main',
             'totalsync-2p-sync=totalsync_2p.cli:main',
         ],
     },

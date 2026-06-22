@@ -10,6 +10,7 @@ from .base import SourceExtractor
 def _load_params(params_path: Path) -> dict:
     with open(params_path) as f:
         params = json.load(f)
+    params.pop("comments", None)
     if "planes" in params:
         params["planes"] = np.array(params["planes"])
     if "pc_size" in params:
