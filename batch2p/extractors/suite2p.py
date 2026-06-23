@@ -117,19 +117,65 @@ def _build_sync_indices(
     return result
 
 
+def _compute_F_sub(source_dir: Path, settings: dict) -> bool:
+    """Compute baseline-subtracted neuropil-corrected fluorescence and save as F_sub.npy.
+
+    F_sub = dcnv.preprocess(F - neucoeff * Fneu) using params from settings.
+    settings is a two-level dict: the 'extraction:' section (note colon) holds
+    neuropil_coefficient; the 'dcnv_preprocess' section holds baseline params.
+    Suite2p flat-dict keys are used as fallback when sections are absent.
+    Returns True if F_sub.npy was created.
+    """
+    import torch
+    from suite2p.extraction import dcnv
+
+    f_path = source_dir / "F.npy"
+    fneu_path = source_dir / "Fneu.npy"
+    if not f_path.exists() or not fneu_path.exists():
+        return False
+
+    F = np.load(f_path)
+    Fneu = np.load(fneu_path)
+
+    # neuropil_coefficient is in the 'extraction:' section (note colon in key name);
+    # fall back to suite2p's flat 'neucoeff' key.
+    extraction = settings.get('extraction:', {})
+    neucoeff = float(extraction.get('neuropil_coefficient', settings.get('neucoeff', 0.7)))
+    Fc = F - neucoeff * Fneu
+
+    # dcnv params are in the 'dcnv_preprocess' section; fall back to suite2p flat keys.
+    dcnv_section = settings.get('dcnv_preprocess', {})
+    def _p(key, default):
+        return dcnv_section.get(key, settings.get(key, default))
+
+    device = torch.device(settings.get('torch_device', 'cpu'))
+    F_sub = dcnv.preprocess(
+        F=Fc,
+        baseline=_p('baseline', 'maximin'),
+        win_baseline=float(_p('win_baseline', 60.0)),
+        sig_baseline=float(_p('sig_baseline', 10.0)),
+        fs=float(settings.get('fs', 10.0)),
+        prctile_baseline=float(_p('prctile_baseline', 8.0)),
+        batch_size=int(settings.get('batch_size', 200)),
+        device=device,
+    )
+    np.save(source_dir / "F_sub.npy", F_sub)
+    return True
+
+
 def _sync_source_dir(
     source_dir: Path,
     out_dir: Path,
     sync_indices: list[tuple[np.ndarray, np.ndarray]],
 ) -> bool:
-    """Load F/Fneu/spks from source_dir and save synced TsdFrames to out_dir.
+    """Load F/Fneu/spks/F_sub from source_dir and save synced TsdFrames to out_dir.
 
     Returns True if any arrays were found and processed.
     """
     import pynapple as nap
 
     arrays_to_sync = {}
-    for name in ('F', 'Fneu', 'spks'):
+    for name in ('F', 'Fneu', 'spks', 'F_sub'):
         npy_path = source_dir / f"{name}.npy"
         if npy_path.exists():
             arrays_to_sync[name] = np.load(npy_path)
@@ -261,6 +307,12 @@ class Suite2PExtractor(SourceExtractor):
             if fast_disk.exists():
                 shutil.rmtree(fast_disk)
                 print(f"  Cleaned up fast_disk scratch directory: {fast_disk}")
+
+        if self.data.get('do_F_sub', False):
+            print("\nComputing F_sub (baseline-subtracted neuropil-corrected fluorescence)...")
+            for sub_dir in [results_path / "combined"] + sorted(results_path.glob("plane[0-9]*")):
+                if _compute_F_sub(sub_dir, self.settings):
+                    print(f"  Saved F_sub.npy in {sub_dir.name}/")
 
     def create_synced_outputs(
         self,
