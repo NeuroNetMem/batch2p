@@ -42,6 +42,11 @@ directory used to express TIFF and `.b64` paths as relative entries. Set this
 to the path as it will appear **on the processing server**, which may differ
 from the path used when selecting files on the local machine.
 
+When Root Path is set, files added via the **Add…** dialog are stored in the
+list as paths **relative to Root Path** (or just the filename if the file is
+outside Root Path). The generated `data.json` stores absolute paths — Root Path
+is prepended to each relative entry at generation time.
+
 ### TIFF files / .b64 files
 
 Two side-by-side lists. Row *i* of the TIFF list corresponds to row *i* of the

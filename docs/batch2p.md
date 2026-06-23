@@ -250,6 +250,13 @@ Saved in `behavior_sync/`:
 | `Fneu_sync.npz` | Neuropil traces at synchronized frames. |
 | `spks_sync.npz` | Deconvolved spike estimates at synchronized frames. |
 
+When `block_size > 1`, frame indices are grouped into volumes (`block_size` consecutive
+frames starting at a multiple of `block_size`). Only **complete** volumes — those for
+which all `block_size` frames appear in the synchronized frame list — are included.
+Truncated volumes (e.g. the last volume if the sync window ends mid-volume) are silently
+dropped and a warning is printed. Timestamps are taken from the first frame of each
+retained volume.
+
 ### Suite2P synced outputs
 
 Suite2P produces both combined (all-plane) and per-plane outputs. Synced versions
