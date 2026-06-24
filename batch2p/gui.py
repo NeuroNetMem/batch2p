@@ -157,8 +157,8 @@ DATA_FIELDS = [
     ("fill_tsync_gaps",  "Fill TSync Gaps",     False, "bool", "Interpolate timestamp gaps in the behavioural log instead of truncating.", "both"),
     ("ignore_barcode",   "Ignore Barcode",      False, "bool", "Skip barcode-based alignment and fall back to frame-clock onset matching.", "both"),
     ("pinsheet_file",    "Pinsheet File",       "",    "file", "Path to the TotalSync pin-mapping JSON (required when behavioural data is provided).", "both"),
-    ("tiff_trim_size",   "TIFF Trim Size",      "9999","int",  "Split each input TIFF into chunks of this many frames before processing (Suite3D only; set 0 to disable).", "suite3d"),
-    ("add_offset",       "Add Offset",          False, "bool", "Pass add_offset=True to split_3d_tiff_into_chunks (Suite3D only).", "suite3d"),
+    ("tiff_trim_size",   "TIFF Trim Size",      "9999","int",  "Split each input TIFF into chunks of this many frames before processing. Set 0 to disable.", "both"),
+    ("add_offset",       "Add Offset",          False, "bool", "Pass add_offset=True to split_3d_tiff_into_chunks when TIFF splitting is enabled.", "both"),
     ("do_F_sub",         "Compute F_sub",       False, "bool", "After extraction, compute F_sub = dcnv.preprocess(F - neucoeff*Fneu) and save as F_sub.npy. Also synchronized when behavioural sync is run. Uses baseline/neucoeff/fs params from the Suite2P params file.", "suite2p"),
     ("comments",         "Comments",            "",    "textarea", "Free-form notes about this run configuration. Ignored by batch2p and extractors.", "both"),
 ]
