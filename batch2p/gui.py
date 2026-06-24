@@ -1010,19 +1010,22 @@ class RunConfigWidget(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self._current_project_path: str | None = None
         self.setWindowTitle("batch2p GUI")
         self.resize(1300, 800)
 
         # ── Menu ──────────────────────────────────────────────────────────────
         menu = self.menuBar()
         file_menu = menu.addMenu("&File")
-        act_new   = QAction("&New project",  self, shortcut="Ctrl+N")
-        act_open  = QAction("&Open project…",self, shortcut="Ctrl+O")
-        act_save  = QAction("&Save project…",self, shortcut="Ctrl+S")
-        act_gen   = QAction("&Generate JSON files…", self, shortcut="Ctrl+G")
+        act_new      = QAction("&New project",       self, shortcut="Ctrl+N")
+        act_open     = QAction("&Open project…",     self, shortcut="Ctrl+O")
+        act_save     = QAction("&Save project",      self, shortcut="Ctrl+S")
+        act_save_as  = QAction("Save project &As…",  self, shortcut="Ctrl+Shift+S")
+        act_gen      = QAction("&Generate JSON files…", self, shortcut="Ctrl+G")
         file_menu.addAction(act_new)
         file_menu.addAction(act_open)
         file_menu.addAction(act_save)
+        file_menu.addAction(act_save_as)
         act_exit  = QAction("E&xit", self, shortcut="Ctrl+Q")
         file_menu.addSeparator()
         file_menu.addAction(act_gen)
@@ -1031,6 +1034,7 @@ class MainWindow(QMainWindow):
         act_new.triggered.connect(self._new_project)
         act_open.triggered.connect(self._open_project)
         act_save.triggered.connect(self._save_project)
+        act_save_as.triggered.connect(self._save_project_as)
         act_gen.triggered.connect(self._generate)
         act_exit.triggered.connect(self.close)
 
@@ -1041,6 +1045,7 @@ class MainWindow(QMainWindow):
         tb.addAction(act_new)
         tb.addAction(act_open)
         tb.addAction(act_save)
+        tb.addAction(act_save_as)
         tb.addSeparator()
         btn_gen = QPushButton("  ⚙  Generate JSON files  ")
         btn_gen.setFixedHeight(32)
@@ -1104,6 +1109,8 @@ class MainWindow(QMainWindow):
         if QMessageBox.question(self, "New project",
                                  "Discard current project and start fresh?",
                                  QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+            self._current_project_path = None
+            self.setWindowTitle("batch2p GUI")
             self.input_widget.from_dict({"root_path": "", "tif_files": [], "b64_files": []})
             self.run_config.from_dict({})
             self.param_table_s2p.load_defaults()
@@ -1112,12 +1119,24 @@ class MainWindow(QMainWindow):
             self.param_table_s3d.comments_edit.clear()
 
     def _save_project(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save project",
-                                               "", "batch2p project (*.b2p.json)")
+        """Save to the current project file, or show a dialog if none is open."""
+        if self._current_project_path:
+            self._write_project(self._current_project_path)
+        else:
+            self._save_project_as()
+
+    def _save_project_as(self):
+        """Always show a save dialog to choose (or change) the project file."""
+        path, _ = QFileDialog.getSaveFileName(self, "Save project as",
+                                               self._current_project_path or "",
+                                               "batch2p project (*.b2p.json)")
         if not path:
             return
         if not path.endswith(".b2p.json"):
             path += ".b2p.json"
+        self._write_project(path)
+
+    def _write_project(self, path: str):
         project = {
             "input_files": self.input_widget.to_dict(),
             "run_config":  self.run_config.to_dict(),
@@ -1126,6 +1145,8 @@ class MainWindow(QMainWindow):
         }
         with open(path, "w") as f:
             json.dump(project, f, indent=2)
+        self._current_project_path = path
+        self.setWindowTitle(f"batch2p GUI — {Path(path).name}")
         self.statusBar().showMessage(f"Project saved to {path}")
 
     def _open_project(self):
@@ -1133,12 +1154,17 @@ class MainWindow(QMainWindow):
                                                "", "batch2p project (*.b2p.json);;JSON (*.json)")
         if not path:
             return
+        self._load_project_file(path)
+
+    def _load_project_file(self, path: str):
         with open(path) as f:
             project = json.load(f)
         self.input_widget.from_dict(project.get("input_files", {}))
         self.run_config.from_dict(project.get("run_config", {}))
         self._table_from_save(self.param_table_s2p, project.get("params_s2p", {}))
         self._table_from_save(self.param_table_s3d, project.get("params_s3d", {}))
+        self._current_project_path = path
+        self.setWindowTitle(f"batch2p GUI — {Path(path).name}")
         self.statusBar().showMessage(f"Project loaded from {path}")
 
     @staticmethod
@@ -1470,6 +1496,16 @@ def main():
     app.setStyle("Fusion")
     win = MainWindow()
     win.show()
+    # Open project file passed as CLI argument
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    if args:
+        project_path = args[0]
+        try:
+            win._load_project_file(project_path)
+        except Exception as exc:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(win, "Open failed",
+                                 f"Could not open project file:\n{project_path}\n\n{exc}")
     sys.exit(app.exec_())
 
 

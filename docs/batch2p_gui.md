@@ -8,9 +8,14 @@ grid of run configurations in one step.
 ## Launch
 
 ```bash
-batch2p-gui          # after pip install -e .
+batch2p-gui                        # after pip install -e .
+batch2p-gui path/to/project.b2p.json   # open a project file directly
 python -m batch2p.gui
+python -m batch2p.gui path/to/project.b2p.json
 ```
+
+When a `.b2p.json` path is passed as a command-line argument the project is
+loaded automatically on startup.
 
 Requires PyQt5 (`pip install pyqt5`).
 
@@ -252,11 +257,21 @@ and a summary of generated filenames is shown.
 
 ## Project save / load
 
-`File > Save project…` / `File > Open project…` (`.b2p.json`) persist the
+`File > Open project…` (`Ctrl+O`) and the three save actions below persist the
 complete GUI state: file lists, root path, run-configuration fields, and the
 full parameter table (values and sweep flags) for both Suite2P and Suite3D
 simultaneously. This allows switching between algorithms and resuming work
 across sessions without re-entering settings.
+
+| Action | Shortcut | Behaviour |
+|--------|----------|-----------|
+| **Save project** | `Ctrl+S` | Save to the currently open `.b2p.json` file. If no project is open, opens a save dialog (same as *Save project As…*). |
+| **Save project As…** | `Ctrl+Shift+S` | Always opens a save dialog to choose the destination file. |
+| **Open project…** | `Ctrl+O` | Open a `.b2p.json` file. The window title updates to show the filename. |
+| **New project** | `Ctrl+N` | Clear all settings and start fresh (prompts for confirmation). |
+
+After a successful save or open the window title reflects the current project
+filename: `batch2p GUI — <filename>.b2p.json`.
 
 The file list can also be saved and loaded independently via the **Save file
 list** / **Load file list** buttons in the Input Files panel.
