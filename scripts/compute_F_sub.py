@@ -92,9 +92,14 @@ def compute_F_sub(work_dir: Path, settings: dict) -> np.ndarray:
 def compute_dff(f_sub, fs=29.96, window_sec=300, percentile=8, abs_floor=10):
     from scipy.ndimage import percentile_filter
     window_frames = int(window_sec * fs)
-    f0 = percentile_filter(f_sub, percentile, size=window_frames, mode='nearest')
-    f0_clamped = np.maximum(f0, abs_floor)
-    dff = (f_sub - f0_clamped) / f0_clamped
+    n_cells, n_frames = f_sub.shape
+    dff = np.empty_like(f_sub)
+    f0_clamped = np.empty_like(f_sub)
+    for i in range(n_cells):
+        f0 = percentile_filter(f_sub[i], percentile, size=window_frames, mode='nearest')
+        f0c = np.maximum(f0, abs_floor)
+        dff[i] = (f_sub[i] - f0c) / f0c
+        f0_clamped[i] = f0c
     return dff, f0_clamped
 
 

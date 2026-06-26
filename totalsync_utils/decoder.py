@@ -279,7 +279,7 @@ def decode_b64_files(directory, verbose=True, pin_json_path=None):
     dict
         Dictionary mapping filenames (without extension) to decoded data
     """
-    b64_files = glob.glob(os.path.join(directory, '*.b64'))
+    b64_files = sorted(glob.glob(os.path.join(directory, '*.b64')))
 
     if not b64_files:
         raise ValueError(f"No .b64 files found in {directory}")
