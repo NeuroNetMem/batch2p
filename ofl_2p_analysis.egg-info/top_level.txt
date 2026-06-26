@@ -1,3 +1,0 @@
-batch2p
-totalsync_2p
-totalsync_utils
