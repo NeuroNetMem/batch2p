@@ -11,6 +11,15 @@ dependencies = [
     "totalsync-utils",
     "totalsync-2p",
 ]
+authors = [
+    { name="Francesco P. Battaglia", email = ""},
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 
 [project.optional-dependencies]
 gui = [
