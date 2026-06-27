@@ -20,6 +20,7 @@ gui = [
 batch2p = "batch2p.cli:main"
 batch2p-gui = "batch2p.gui:main"
 batch2p-multi = "batch2p.multi:main"
+batch2p-compute-fsub = "batch2p.compute_F_sub:main"
 
 [build-system]
 requires = ["hatchling"]

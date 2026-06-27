@@ -12,12 +12,7 @@ the configuration. The source extraction algorithm is selected via the
 pip install -e .
 ```
 
-This registers the `batch2p` command. Alternatively the script can be run
-directly without installation:
-
-```bash
-python scripts/batch2p_run.py data_suite2p.json
-```
+This registers the `batch2p` command. 
 
 ## Usage
 
