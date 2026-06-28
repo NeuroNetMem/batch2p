@@ -1,6 +1,6 @@
 [project]
 name = "batch2p"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.11"
 dependencies = [
     "numpy",
@@ -10,6 +10,10 @@ dependencies = [
     "tifftrim",
     "totalsync-utils",
     "totalsync-2p",
+    "pyqtgraph>=0.14.0",
+    "qtpy>=2.4.3",
+    "superqt>=0.8.2",
+    "rastermap>=1.0",
 ]
 authors = [
     { name="Francesco P. Battaglia", email = ""},
@@ -24,6 +28,10 @@ classifiers = [
 [project.optional-dependencies]
 gui = [
     "PyQt5",
+    "pyqtgraph",
+    "qtpy",
+    "superqt",
+    "rastermap",
 ]
 [project.scripts]
 batch2p = "batch2p.cli:main"

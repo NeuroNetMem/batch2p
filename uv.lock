@@ -37,12 +37,16 @@ wheels = [
 
 [[package]]
 name = "batch2p"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "pynapple" },
+    { name = "pyqtgraph" },
+    { name = "qtpy" },
+    { name = "rastermap" },
     { name = "suite2p" },
+    { name = "superqt" },
     { name = "tifffile", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "tifffile", version = "2026.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "tifftrim" },
@@ -53,6 +57,10 @@ dependencies = [
 [package.optional-dependencies]
 gui = [
     { name = "pyqt5" },
+    { name = "pyqtgraph" },
+    { name = "qtpy" },
+    { name = "rastermap" },
+    { name = "superqt" },
 ]
 
 [package.metadata]
@@ -60,7 +68,15 @@ requires-dist = [
     { name = "numpy" },
     { name = "pynapple" },
     { name = "pyqt5", marker = "extra == 'gui'" },
+    { name = "pyqtgraph", specifier = ">=0.14.0" },
+    { name = "pyqtgraph", marker = "extra == 'gui'" },
+    { name = "qtpy", specifier = ">=2.4.3" },
+    { name = "qtpy", marker = "extra == 'gui'" },
+    { name = "rastermap", specifier = ">=1.0" },
+    { name = "rastermap", marker = "extra == 'gui'" },
     { name = "suite2p" },
+    { name = "superqt", specifier = ">=0.8.2" },
+    { name = "superqt", marker = "extra == 'gui'" },
     { name = "tifffile" },
     { name = "tifftrim" },
     { name = "totalsync-2p" },
@@ -1536,6 +1552,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyqtgraph"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama" },
+    { name = "numpy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/36/4c242f81fdcbfa4fb62a5645f6af79191f4097a0577bd5460c24f19cc4ef/pyqtgraph-0.14.0-py3-none-any.whl", hash = "sha256:7abb7c3e17362add64f8711b474dffac5e7b0e9245abdf992e9a44119b7aa4f5", size = 1924755, upload-time = "2025-11-16T19:43:22.251Z" },
+]
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1545,6 +1573,36 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+]
+
+[[package]]
+name = "qtpy"
+version = "2.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/01/392eba83c8e47b946b929d7c46e0f04b35e9671f8bb6fc36b6f7945b4de8/qtpy-2.4.3.tar.gz", hash = "sha256:db744f7832e6d3da90568ba6ccbca3ee2b3b4a890c3d6fbbc63142f6e4cdf5bb", size = 66982, upload-time = "2025-02-11T15:09:25.759Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/76/37c0ccd5ab968a6a438f9c623aeecc84c202ab2fabc6a8fd927580c15b5a/QtPy-2.4.3-py3-none-any.whl", hash = "sha256:72095afe13673e017946cc258b8d5da43314197b741ed2890e563cf384b51aa1", size = 95045, upload-time = "2025-02-11T15:09:24.162Z" },
+]
+
+[[package]]
+name = "rastermap"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "natsort" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/31/db/e0ed0068934fb588a8e934ebeafb39adbcf9d709a56cb3cb83b3e72be959/rastermap-1.0.tar.gz", hash = "sha256:e71fb30346737ecde596cae27ab8be066988d1bf8d1b54601bbb99e72021e2e8", size = 169907, upload-time = "2024-10-18T20:05:13.127Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/c8/01a9eafcc8e2c074c494824f33cc688f6ad4ac98964b6ca5d8c2368246b0/rastermap-1.0-py3-none-any.whl", hash = "sha256:c7ec55d625bc88cf97df50d5a2e068869e5790091ea595120f497cc7fab9370a", size = 90535, upload-time = "2024-10-18T20:05:11.694Z" },
 ]
 
 [[package]]
@@ -1974,6 +2032,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/48/27/1031be9357bbea04db27195e7f9846fc895e9e9def6550d2fe52d69b0b72/suite2p-1.1.0.tar.gz", hash = "sha256:82d53175bfd4686462c18f183d5206cb6eefc8b214de03aa249b00f1c7c2d9bb", size = 9709772, upload-time = "2026-06-02T16:52:09.445Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a1/48/7f8c84641b74a62a36211a26ac6272d0f965a3198eb6db294d0bfd80a27c/suite2p-1.1.0-py3-none-any.whl", hash = "sha256:8a231a5f78d0190c3db68b1f1d7ed8efb72facc8513154e7e1346afc601d77d1", size = 686261, upload-time = "2026-06-02T16:52:07.846Z" },
+]
+
+[[package]]
+name = "superqt"
+version = "0.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pygments" },
+    { name = "qtpy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/84/fe/919245507b15b4633cd40292d69c3b6afa8a650bf3ec33f3329d26314a3c/superqt-0.8.2.tar.gz", hash = "sha256:faa3bd00ef1c9b209b1f31b154dd41c596fec3824f61a70c251fb5569acd7ba6", size = 110190, upload-time = "2026-05-18T14:33:47.027Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/b9/748c3cbcdba20ef01c055a35905cad5c771cc1df29be11b9a82da6fd8e0d/superqt-0.8.2-py3-none-any.whl", hash = "sha256:ce8400ae7b577d090368aae5bdbabb06cd6bc893f6ca73485bb686835bf20943", size = 101595, upload-time = "2026-05-18T14:33:45.462Z" },
 ]
 
 [[package]]
