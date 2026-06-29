@@ -163,6 +163,61 @@ def dry_run(args, data: dict) -> int:
     return 0
 
 
+def _merge_behavior_sync(
+    session_dirs: list[Path],
+    sync_results: list[dict],
+    output_dir: Path,
+) -> None:
+    """Concatenate per-session behavioral pynapple files with cumulative time offsets.
+
+    Each session's behavioral channels were saved by synchronize() into
+    session_dirs[i]/behavior/{key}.npz.  This function merges all sessions into
+    output_dir/behavior/{key}.npz, offsetting timestamps so they form a single
+    continuous sequence (same convention as _build_sync_indices in suite2p.py).
+    """
+    import numpy as np
+    import pynapple as nap
+
+    # Cumulative time offsets: add last timestamp of each session to the next.
+    time_offsets = [0.0]
+    for stats in sync_results[:-1]:
+        time_offsets.append(time_offsets[-1] + float(stats['frames_time_idx'].t[-1]))
+
+    # Collect channel names present in any session's behavior/ subdir.
+    all_keys: set[str] = set()
+    for sd in session_dirs:
+        bdir = sd / "behavior"
+        if bdir.exists():
+            all_keys.update(p.stem for p in bdir.glob("*.npz"))
+
+    if not all_keys:
+        return
+
+    merged_dir = output_dir / "behavior"
+    merged_dir.mkdir(parents=True, exist_ok=True)
+
+    for key in sorted(all_keys):
+        all_t = []
+        all_d = []
+        is_2d = False
+        for sd, offset in zip(session_dirs, time_offsets):
+            npz_path = sd / "behavior" / f"{key}.npz"
+            if not npz_path.exists():
+                continue
+            obj = nap.load_file(str(npz_path))
+            all_t.append(obj.t + offset)
+            all_d.append(obj.d)
+            if obj.d.ndim == 2:
+                is_2d = True
+        if not all_t:
+            continue
+        t = np.concatenate(all_t)
+        d = np.concatenate(all_d, axis=0)
+        merged = nap.TsdFrame(t=t, d=d) if is_2d else nap.Tsd(t=t, d=d)
+        merged.save(merged_dir / f"{key}.npz")
+        print(f"    Merged behavior/{key}.npz  shape={d.shape}")
+
+
 def collect_b64s(data: dict) -> list[Path]:
     root = Path(data["root_path"]) if "root_path" in data else Path(".")
     b64s = []
@@ -340,12 +395,22 @@ def main():
             behavior_sync_dir = results_root_dir / "behavior_sync"
             behavior_sync_dir.mkdir(parents=True, exist_ok=True)
             sync_results = []
+            session_sync_dirs = []
             for tif, b64 in zip(tifs_for_sync, b64_files):
+                # Each session gets its own subdirectory so that behavior/{key}.npz
+                # files from different sessions do not overwrite each other.
+                session_sync_dir = behavior_sync_dir / b64.stem
+                session_sync_dir.mkdir(parents=True, exist_ok=True)
                 print(f"  Synchronizing {tif.name} + {b64.name}")
-                stats = synchronize(str(tif), str(b64), str(behavior_sync_dir), str(pinsheet_file),
+                stats = synchronize(str(tif), str(b64), str(session_sync_dir), str(pinsheet_file),
                                     fill_gaps=fill_tsync_gaps, ignore_barcode=ignore_barcode)
                 sync_results.append(stats)
+                session_sync_dirs.append(session_sync_dir)
             print("Behavioral synchronization done.")
+
+            print("\nMerging behavioral data across sessions...")
+            _merge_behavior_sync(session_sync_dirs, sync_results, behavior_sync_dir)
+            print("Behavioral merge done.")
 
             print(f"\nCreating behavior-synced {algorithm} outputs...")
             extractor.create_synced_outputs(
