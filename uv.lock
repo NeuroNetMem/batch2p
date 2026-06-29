@@ -42,6 +42,7 @@ source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "pynapple" },
+    { name = "pyqt5" },
     { name = "pyqtgraph" },
     { name = "qtpy" },
     { name = "rastermap" },
@@ -67,6 +68,7 @@ gui = [
 requires-dist = [
     { name = "numpy" },
     { name = "pynapple" },
+    { name = "pyqt5", specifier = ">=5.15.11" },
     { name = "pyqt5", marker = "extra == 'gui'" },
     { name = "pyqtgraph", specifier = ">=0.14.0" },
     { name = "pyqtgraph", marker = "extra == 'gui'" },

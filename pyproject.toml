@@ -14,6 +14,7 @@ dependencies = [
     "qtpy>=2.4.3",
     "superqt>=0.8.2",
     "rastermap>=1.0",
+    "pyqt5>=5.15.11",
 ]
 authors = [
     { name="Francesco P. Battaglia", email = ""},
