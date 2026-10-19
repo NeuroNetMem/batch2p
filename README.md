@@ -11,23 +11,49 @@ are currently supported, with features like:
 - if the experiment used [totalsync](https://github.com/NeuroNetMem/totalsync) for synchronization, imaging and other experimental data (eg. behavioral) are automatically synchronized.
 ## Installation
 
-### From PyPI
+The recommended way to install batch2p is with [uv](https://docs.astral.sh/uv/). If you don't have it yet:
 
 ```bash
-pip install batch2p
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### From source (using pip)
+#### Custom uv cache location (e.g. home directory quota issues)
+
+By default uv stores its cache in `~/.cache/uv` (Linux) or `~/Library/Caches/uv` (macOS). The dependencies of batch2p (torch, suite2p, ...) are large, so on systems with a small home-directory quota you should point uv to a different location, **before** installing anything:
 
 ```bash
-git clone https://github.com/NeuroNetMem/batch2p.git
-cd batch2p
-pip install . # (or uv pip install ".[all]" )
+export UV_CACHE_DIR=/path/to/large/disk/uv-cache
 ```
 
-this will install batch2p without GUI support, (which is suitable for headless servers). To install the GUI, replace the last line with
+Add this line to your `~/.bashrc` (or `~/.zshrc`) to make it permanent. Alternatively, pass it per command with `uv --cache-dir /path/to/large/disk/uv-cache ...`, or set `cache-dir = "/path/to/large/disk/uv-cache"` in `~/.config/uv/uv.toml`.
+
+Other uv data can also fill up your home directory; you can relocate it in the same way:
+
 ```bash
-pip install ".[gui]" # (or uv pip install ".[gui]" )
+export UV_TOOL_DIR=/path/to/large/disk/uv-tools            # environments created by `uv tool install`
+export UV_PYTHON_INSTALL_DIR=/path/to/large/disk/uv-python # Python interpreters downloaded by uv
+```
+
+If the cache and the target environment are on different filesystems, uv cannot hard-link packages and will fall back to copying them, which may produce a warning. Setting `UV_LINK_MODE=copy` silences it.
+
+### As a command-line tool (using uv)
+
+```bash
+uv tool install batch2p
+```
+
+This makes the `batch2p`, `batch2p-multi`, `batch2p-gui` and `batch2p-compute-fsub` commands available on your `PATH`.
+
+### In a uv project
+
+```bash
+uv add batch2p
+```
+
+or, in an existing virtual environment:
+
+```bash
+uv pip install batch2p
 ```
 
 ### From source (using uv)
@@ -35,7 +61,24 @@ pip install ".[gui]" # (or uv pip install ".[gui]" )
 ```bash
 git clone https://github.com/NeuroNetMem/batch2p.git
 cd batch2p
-uv pip install .
+uv sync              # creates .venv and installs batch2p with the locked dependencies
+uv run batch2p --help
+```
+
+To install the optional GUI dependencies explicitly, use `uv sync --extra gui` (or `uv pip install ".[gui]"`).
+
+### Using pip
+
+```bash
+pip install batch2p
+```
+
+or from a source checkout:
+
+```bash
+git clone https://github.com/NeuroNetMem/batch2p.git
+cd batch2p
+pip install .         # or: pip install ".[gui]"
 ```
 
 ### suite3d (optional)
